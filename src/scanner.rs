@@ -110,37 +110,32 @@ pub fn scan(source: &String) -> Result<Vec<Token>, LexicalError> {
             }
             cc if cc.is_ascii_digit() => {
                 let mut n: f64 = char_to_f64(cc);
-                let mut seen_dot = false;
-                let mut decimal_place: f64 = 0.0;
                 loop {
                     let peek = it.peek();
                     match peek {
                         Some(cc) if cc.is_ascii_digit() => {
-                            let current_digit = char_to_f64(it.next().unwrap());
-                            if seen_dot {
-                                decimal_place += 1.0;
-                                n = n + current_digit * (0.1 as f64).powf(decimal_place);
-                            } else {
-                                n = n * 10.0 + current_digit;
-                            }
-                        }
-                        Some('.') => {
+                            n = n * 10.0 + char_to_f64(*cc);
                             it.next();
-                            if !seen_dot {
-                                match it.peek() {
-                                    None => return Err(LexicalError::InvalidNumberLiteral),
-                                    Some(cc) if !cc.is_ascii_digit() => {
-                                        return Err(LexicalError::InvalidNumberLiteral);
-                                    }
-                                    _ => {}
-                                }
-                                seen_dot = true;
-                            } else {
-                                return Err(LexicalError::InvalidNumberLiteral);
-                            }
                         }
-                        None => break,
-                        _ => {}
+                        _ => break,
+                    }
+                }
+                if it.peek() == Some(&'.') {
+                    let mut current_char = it.next();
+                    let mut decimal_place: f64 = 0.0;
+                    loop {
+                        match it.peek() {
+                            Some(cc) if cc.is_ascii_digit() => {
+                                decimal_place += 1.0;
+                                n = n + (0.1 as f64).powf(decimal_place) * char_to_f64(*cc);
+                                current_char = it.next();
+                            }
+                            Some(cc) if *cc == '\n' || cc.is_whitespace() => {
+                                break;
+                            }
+                            None if current_char != Some('.') => break,
+                            _ => return Err(LexicalError::InvalidNumberLiteral),
+                        }
                     }
                 }
                 Ok(Some(TokenType::Number(n)))
@@ -236,6 +231,14 @@ mod tests {
             Ok(vec![
                 Token{ type_: TokenType::Number(123.5), line: 1, },
                 Token{ type_: TokenType::EOF, line: 1, },
+            ])
+        ),
+        float_literal_with_line_break: (
+            "123.5
+            ",
+            Ok(vec![
+                Token{ type_: TokenType::Number(123.5), line: 1, },
+                Token{ type_: TokenType::EOF, line: 2, },
             ])
         ),
         error_leading_decimal_point: (
