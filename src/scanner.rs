@@ -3,8 +3,10 @@ use std::{iter::Peekable, str::Chars, vec::Vec};
 use crate::token::{Token, TokenType};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct LexicalError {
-    character: char,
+pub enum LexicalError {
+    UnexpectedCharacter(char),
+    UnterminatedString,
+    InvalidNumberLiteral,
 }
 
 type SourceIterator<'a> = Peekable<Chars<'a>>;
@@ -30,6 +32,10 @@ fn peek_match_equals(
     }
 }
 
+fn char_to_f64(c: char) -> f64 {
+    ((c as u32) - ('0' as u32)) as f64
+}
+
 pub fn scan(source: &String) -> Result<Vec<Token>, LexicalError> {
     let mut tokens: Vec<Token> = Vec::new();
     let (mut line, mut start, mut current): (u32, usize, usize) = (1, 0, 0);
@@ -41,7 +47,13 @@ pub fn scan(source: &String) -> Result<Vec<Token>, LexicalError> {
             '{' => Ok(Some(TokenType::LeftBrace)),
             '}' => Ok(Some(TokenType::RightBrace)),
             ',' => Ok(Some(TokenType::Comma)),
-            '.' => Ok(Some(TokenType::Dot)),
+            '.' => {
+                let peek = it.peek();
+                match peek {
+                    Some(cc) if cc.is_ascii_digit() => Err(LexicalError::InvalidNumberLiteral),
+                    _ => Ok(Some(TokenType::Dot)),
+                }
+            }
             '-' => Ok(Some(TokenType::Minus)),
             '+' => Ok(Some(TokenType::Plus)),
             ';' => Ok(Some(TokenType::Semicolon)),
@@ -75,13 +87,71 @@ pub fn scan(source: &String) -> Result<Vec<Token>, LexicalError> {
                 }
                 Ok(None)
             }
+            '"' => {
+                let mut accumulator = String::new();
+                let mut error: Option<LexicalError> = None;
+                loop {
+                    let cc = it.next();
+                    match cc {
+                        Some('"') => break,
+                        Some('\n') => line += 1,
+                        None => {
+                            error = Some(LexicalError::UnterminatedString);
+                            break;
+                        }
+                        Some(cc) => accumulator.push(cc),
+                    };
+                }
+                if let Some(e) = error {
+                    Err(e)
+                } else {
+                    Ok(Some(TokenType::String(accumulator)))
+                }
+            }
+            cc if cc.is_ascii_digit() => {
+                let mut n: f64 = char_to_f64(cc);
+                let mut seen_dot = false;
+                let mut decimal_place: f64 = 0.0;
+                loop {
+                    let peek = it.peek();
+                    match peek {
+                        Some(cc) if cc.is_ascii_digit() => {
+                            let current_digit = char_to_f64(it.next().unwrap());
+                            if seen_dot {
+                                decimal_place += 1.0;
+                                n = n + current_digit * (0.1 as f64).powf(decimal_place);
+                            } else {
+                                n = n * 10.0 + current_digit;
+                            }
+                        }
+                        Some('.') => {
+                            it.next();
+                            if !seen_dot {
+                                match it.peek() {
+                                    None => return Err(LexicalError::InvalidNumberLiteral),
+                                    Some(cc) if !cc.is_ascii_digit() => {
+                                        return Err(LexicalError::InvalidNumberLiteral);
+                                    }
+                                    _ => {}
+                                }
+                                seen_dot = true;
+                            } else {
+                                return Err(LexicalError::InvalidNumberLiteral);
+                            }
+                        }
+                        None => break,
+                        _ => {}
+                    }
+                }
+                Ok(Some(TokenType::Number(n)))
+            }
             '/' => Ok(Some(TokenType::Slash)),
             '\n' => {
                 line += 1;
                 Ok(None)
             }
             cc if cc.is_whitespace() => Ok(None),
-            _ => Err(LexicalError { character: c }),
+            _ => Err(LexicalError::UnexpectedCharacter(c)),
         }?;
         if let Some(token_type) = token_type_opt {
             tokens.push(Token {
@@ -142,6 +212,39 @@ mod tests {
                 Token{ type_: TokenType::RightParen, line: 1, },
                 Token{ type_: TokenType::EOF, line: 1, },
             ])
+        ),
+        string_literal: (
+            "\"abc\"",
+            Ok(vec![
+                Token{ type_: TokenType::String("abc".to_owned()), line: 1, },
+                Token{ type_: TokenType::EOF, line: 1, },
+            ])
+        ),
+        unterminated_string_literal: (
+            "\"abc",
+            Err(LexicalError::UnterminatedString),
+        ),
+        int_literal: (
+            "123",
+            Ok(vec![
+                Token{ type_: TokenType::Number(123.0), line: 1, },
+                Token{ type_: TokenType::EOF, line: 1, },
+            ])
+        ),
+        float_literal: (
+            "123.5",
+            Ok(vec![
+                Token{ type_: TokenType::Number(123.5), line: 1, },
+                Token{ type_: TokenType::EOF, line: 1, },
+            ])
+        ),
+        error_leading_decimal_point: (
+            ".5",
+            Err(LexicalError::InvalidNumberLiteral),
+        ),
+        error_trailing_decimal_point: (
+            "5.",
+            Err(LexicalError::InvalidNumberLiteral),
         ),
     }
 }
