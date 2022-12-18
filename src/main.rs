@@ -9,8 +9,8 @@ mod token;
 fn main() -> Result<(), Box<dyn Error>> {
     let mut args = env::args();
     match args.len() {
-        0 => interpreter::run_prompt(),
-        1 => interpreter::run_file(args.next().unwrap()),
+        1 => interpreter::run_prompt(),
+        2 => interpreter::run_file(args.last().unwrap()),
         _ => {
             println!("Usage: lox [script]");
             process::exit(1);

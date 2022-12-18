@@ -4,6 +4,8 @@ use std::io;
 use std::io::BufRead;
 use std::io::Write;
 
+use crate::scanner;
+
 #[derive(Debug)]
 struct Interpreter {
     had_error: bool,
@@ -12,6 +14,12 @@ struct Interpreter {
 impl Interpreter {}
 
 fn run(program: &String) -> Result<(), Box<dyn Error>> {
+    let tokens = scanner::scan(&program);
+    match tokens {
+        Ok(tokens) => println!("{:?}", tokens),
+        Err(e) => error(e.line, &format!("{:?}", e.kind)),
+    };
+
     Ok(())
 }
 
@@ -32,14 +40,15 @@ pub fn run_file(path: String) -> Result<(), Box<dyn Error>> {
 pub fn run_prompt() -> Result<(), Box<dyn Error>> {
     let stdin = io::stdin();
     let mut handle = stdin.lock();
-    let mut buffer = String::new();
     loop {
         print!("> ");
+        io::stdout().flush()?;
+        let mut buffer = String::new();
         let r = handle.read_line(&mut buffer)?;
+        println!("buffer: {}", buffer);
         if r == 0 {
             return Ok(());
         }
-        // TODO: use result
         run(&buffer);
     }
 }
