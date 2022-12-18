@@ -42,8 +42,53 @@ pub enum TokenType {
     Var,
     While,
 
-    Comment,
     EOF,
+}
+
+impl TokenType {
+    pub fn to_string(&self) -> String {
+        match self {
+            TokenType::LeftParen => "(".to_owned(),
+            TokenType::RightParen => ")".to_owned(),
+            TokenType::LeftBrace => "{".to_owned(),
+            TokenType::RightBrace => "}".to_owned(),
+            TokenType::Comma => ".to_owned(),".to_owned(),
+            TokenType::Dot => ".".to_owned(),
+            TokenType::Minus => "-".to_owned(),
+            TokenType::Plus => "+".to_owned(),
+            TokenType::Semicolon => ";".to_owned(),
+            TokenType::Slash => "/".to_owned(),
+            TokenType::Star => "*".to_owned(),
+            TokenType::Bang => "!".to_owned(),
+            TokenType::BangEqual => "!=".to_owned(),
+            TokenType::Equal => "=".to_owned(),
+            TokenType::EqualEqual => "==".to_owned(),
+            TokenType::Greater => ">".to_owned(),
+            TokenType::GreaterEqual => ">=".to_owned(),
+            TokenType::Less => "<".to_owned(),
+            TokenType::LessEqual => "<=".to_owned(),
+            TokenType::Identifier(s) => s.clone(),
+            TokenType::String(s) => s.clone(),
+            TokenType::Number(n) => n.to_string(),
+            TokenType::And => "and".to_owned(),
+            TokenType::Class => "class".to_owned(),
+            TokenType::Else => "else".to_owned(),
+            TokenType::False => "false".to_owned(),
+            TokenType::Fun => "fun".to_owned(),
+            TokenType::For => "for".to_owned(),
+            TokenType::If => "if".to_owned(),
+            TokenType::Nil => "nil".to_owned(),
+            TokenType::Or => "or".to_owned(),
+            TokenType::Print => "print".to_owned(),
+            TokenType::Return => "return".to_owned(),
+            TokenType::Super => "super".to_owned(),
+            TokenType::This => "this".to_owned(),
+            TokenType::True => "true".to_owned(),
+            TokenType::Var => "var".to_owned(),
+            TokenType::While => "while".to_owned(),
+            TokenType::EOF => "EOF".to_owned(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
