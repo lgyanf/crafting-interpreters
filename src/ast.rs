@@ -35,7 +35,48 @@ impl visit::Visitor for AstPrinter {
                 self.visit_expr(&left),
                 self.visit_expr(&right)
             ),
-            Expr::Grouping(e) => format!("({})", self.visit_expr(&e)),
+            Expr::Grouping(e) => format!("(group {})", self.visit_expr(&e)),
         }
     }
+}
+
+#[cfg(test)]
+
+mod tests {
+    use super::*;
+    use visit::*;
+
+    macro_rules! parametrized_tests {
+        ($($name:ident: $value:expr,)*) => {
+        $(
+            #[test]
+            fn $name() {
+                let (input, expected) = $value;
+                let mut printer = AstPrinter{};
+                let printed_ast = printer.visit_expr(&input);
+                assert_eq!(printed_ast, expected);
+            }
+        )*
+        }
+    }
+
+    parametrized_tests!(
+        example1: (
+            Expr::Binary(
+                Box::new(
+                    Expr::Unary(
+                        Token { type_: TokenType::Minus, line: 1 },
+                        Box::new(Expr::Literal(TokenType::Number(123.0)))
+                    )
+                ),
+                Token { type_: TokenType::Star, line: 1},
+                Box::new(
+                    Expr::Grouping(
+                        Box::new(Expr::Literal(TokenType::Number(45.67))),
+                    ),
+                ),
+            ),
+            "(* (- 123) (group 45.67))"
+        ),
+    );
 }
