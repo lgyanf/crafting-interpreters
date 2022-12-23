@@ -91,7 +91,7 @@ impl TokenType {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Token {
     pub type_: TokenType,
     // pub lexeme: String,

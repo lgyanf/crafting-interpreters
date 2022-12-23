@@ -3,7 +3,7 @@ use std::iter::Peekable;
 use crate::token::{Token, TokenType};
 
 #[derive(PartialEq, Debug)]
-enum Expr {
+pub enum Expr {
     Literal(TokenType),
     Unary(Token, Box<Expr>),
     Binary(Box<Expr>, Token, Box<Expr>),
@@ -42,82 +42,91 @@ impl visit::Visitor for AstPrinter {
     }
 }
 
-struct Parser {
-    token_iterator: Peekable<Box<dyn Iterator<Item = Token>>>,
+pub struct SyntaxError {
+    line: u32,
+    message: String,
 }
 
-impl Parser {
-    fn expression(&mut self) -> Expr {
+struct Parser<'a> {
+    // token_iterator: Peekable<Box<dyn Iterator<Item = Token>>>,
+    token_iterator: Peekable<std::slice::Iter<'a, Token>>,
+}
+
+impl Parser<'_> {
+    fn expression(&mut self) -> Result<Expr, SyntaxError> {
         self.equality()
     }
 
-    fn equality(&mut self) -> Expr {
-        let mut left = self.comparison();
+    fn equality(&mut self) -> Result<Expr, SyntaxError> {
+        let mut left = self.comparison()?;
         while let Some(operator) =
             self.consume_if_matches(&[TokenType::BangEqual, TokenType::EqualEqual])
         {
-            let right = self.comparison();
+            let right = self.comparison()?;
             left = Expr::Binary(Box::new(left), operator, Box::new(right));
         }
-        left
+        Ok(left)
     }
 
-    fn comparison(&mut self) -> Expr {
-        let mut left = self.term();
+    fn comparison(&mut self) -> Result<Expr, SyntaxError> {
+        let mut left = self.term()?;
         while let Some(operator) = self.consume_if_matches(&[
             TokenType::Greater,
             TokenType::GreaterEqual,
             TokenType::Less,
             TokenType::LessEqual,
         ]) {
-            let right = self.term();
+            let right = self.term()?;
             left = Expr::Binary(Box::new(left), operator, Box::new(right));
         }
-        left
+        Ok(left)
     }
 
-    fn term(&mut self) -> Expr {
-        let mut left = self.factor();
+    fn term(&mut self) -> Result<Expr, SyntaxError> {
+        let mut left = self.factor()?;
         while let Some(operator) = self.consume_if_matches(&[TokenType::Minus, TokenType::Plus]) {
-            let right = self.factor();
+            let right = self.factor()?;
             left = Expr::Binary(Box::new(left), operator, Box::new(right));
         }
-        left
+        Ok(left)
     }
 
-    fn factor(&mut self) -> Expr {
-        let mut left = self.unary();
+    fn factor(&mut self) -> Result<Expr, SyntaxError> {
+        let mut left = self.unary()?;
         while let Some(operator) = self.consume_if_matches(&[TokenType::Star, TokenType::Slash]) {
-            let right = self.unary();
+            let right = self.unary()?;
             left = Expr::Binary(Box::new(left), operator, Box::new(right));
         }
-        left
+        Ok(left)
     }
 
-    fn unary(&mut self) -> Expr {
+    fn unary(&mut self) -> Result<Expr, SyntaxError> {
         if let Some(operator) = self.consume_if_matches(&[TokenType::Bang, TokenType::Minus]) {
-            let right = self.unary();
-            return Expr::Unary(operator, Box::new(right));
+            let right = self.unary()?;
+            return Ok(Expr::Unary(operator, Box::new(right)));
         }
-        return self.primary();
+        return Ok(self.primary()?);
     }
 
-    fn primary(&mut self) -> Expr {
+    fn primary(&mut self) -> Result<Expr, SyntaxError> {
         let peek = self.token_iterator.peek();
         match peek {
-            None => todo!(),
+            None => unreachable!(),
             Some(t) => match t.type_ {
                 TokenType::False
                 | TokenType::True
                 | TokenType::Nil
                 | TokenType::Number(_)
-                | TokenType::String(_) => Expr::Literal(t.type_.clone()),
+                | TokenType::String(_) => Ok(Expr::Literal(t.type_.clone())),
                 TokenType::LeftParen => {
-                    let expr = self.expression();
+                    let expr = self.expression()?;
                     // TODO: check for RightParen
-                    Expr::Grouping(Box::new(expr))
+                    Ok(Expr::Grouping(Box::new(expr)))
                 }
-                _ => todo!(),
+                _ => Err(SyntaxError {
+                    line: t.line,
+                    message: "Expected expression.".to_owned(),
+                }),
             },
         }
     }
@@ -130,16 +139,46 @@ impl Parser {
                     .iter()
                     .any(|expected_type| *expected_type == t.type_) =>
             {
-                Some(self.token_iterator.next().unwrap())
+                Some((*self.token_iterator.next().unwrap()).clone())
             }
             _ => None,
         }
     }
+
+    fn synchronize(&mut self) {
+        while let Some(token) = self.token_iterator.next() {
+            match token.type_ {
+                TokenType::Semicolon => return,
+                _ => {}
+            }
+            match self.token_iterator.peek() {
+                None => return,
+                Some(next_token) => match next_token.type_ {
+                    TokenType::Class
+                    | TokenType::For
+                    | TokenType::Fun
+                    | TokenType::If
+                    | TokenType::Print
+                    | TokenType::Return
+                    | TokenType::Var
+                    | TokenType::While => return,
+                    _ => {}
+                },
+            }
+        }
+    }
+}
+
+pub fn parse(tokens: Vec<Token>) -> Result<Expr, SyntaxError> {
+    let mut parser = Parser {
+        token_iterator: tokens.iter().peekable(),
+    };
+    parser.expression()
 }
 
 #[cfg(test)]
 
-mod tests {
+mod ast_printer_tests {
     use super::*;
     use visit::*;
 
