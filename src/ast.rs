@@ -4,7 +4,7 @@ use crate::token::{Token, TokenType};
 
 #[derive(PartialEq, Debug)]
 pub enum Expr {
-    Literal(TokenType),
+    Literal(Token),
     Unary(Token, Box<Expr>),
     Binary(Box<Expr>, Token, Box<Expr>),
     Grouping(Box<Expr>),
@@ -27,7 +27,7 @@ impl visit::Visitor for AstPrinter {
 
     fn visit_expr(&mut self, expr: &Expr) -> Self::Result {
         match expr {
-            Expr::Literal(token) => token.to_string(),
+            Expr::Literal(token) => token.type_.to_string(),
             Expr::Unary(op, e) => {
                 format!("({} {})", op.type_.to_string(), self.visit_expr(&e))
             }
@@ -42,6 +42,7 @@ impl visit::Visitor for AstPrinter {
     }
 }
 
+#[derive(PartialEq, Debug)]
 pub struct SyntaxError {
     line: u32,
     message: String,
@@ -109,19 +110,30 @@ impl Parser<'_> {
     }
 
     fn primary(&mut self) -> Result<Expr, SyntaxError> {
-        let peek = self.token_iterator.peek();
-        match peek {
+        match self.token_iterator.peek() {
             None => unreachable!(),
             Some(t) => match t.type_ {
                 TokenType::False
                 | TokenType::True
                 | TokenType::Nil
                 | TokenType::Number(_)
-                | TokenType::String(_) => Ok(Expr::Literal(t.type_.clone())),
+                | TokenType::String(_) => Ok(Expr::Literal(
+                    (*self.token_iterator.next().unwrap()).clone(),
+                )),
                 TokenType::LeftParen => {
+                    let line = t.line;
+                    self.token_iterator.next().unwrap();
                     let expr = self.expression()?;
-                    // TODO: check for RightParen
-                    Ok(Expr::Grouping(Box::new(expr)))
+                    match self.token_iterator.peek() {
+                        Some(tt) if tt.type_ == TokenType::RightParen => {
+                            self.token_iterator.next();
+                            Ok(Expr::Grouping(Box::new(expr)))
+                        }
+                        _ => Err(SyntaxError {
+                            line,
+                            message: "Expect ')' after expression".to_owned(),
+                        }),
+                    }
                 }
                 _ => Err(SyntaxError {
                     line: t.line,
@@ -202,17 +214,142 @@ mod ast_printer_tests {
                 Box::new(
                     Expr::Unary(
                         Token { type_: TokenType::Minus, line: 1 },
-                        Box::new(Expr::Literal(TokenType::Number(123.0)))
+                        Box::new(Expr::Literal(
+                            Token{ type_: TokenType::Number(123.0), line: 1}
+                        ))
                     )
                 ),
                 Token { type_: TokenType::Star, line: 1},
                 Box::new(
                     Expr::Grouping(
-                        Box::new(Expr::Literal(TokenType::Number(45.67))),
+                        Box::new(Expr::Literal(
+                            Token { type_: TokenType::Number(45.67), line: 1 }
+                        )),
                     ),
                 ),
             ),
             "(* (- 123) (group 45.67))"
+        ),
+    );
+}
+
+#[cfg(test)]
+mod parser_tests {
+    use super::*;
+
+    fn eof(line: u32) -> Token {
+        Token {
+            type_: TokenType::EOF,
+            line,
+        }
+    }
+
+    macro_rules! parametrized_tests {
+        ($($name:ident: $value:expr,)*) => {
+        $(
+            #[test]
+            fn $name() {
+                let (input, expected) = $value;
+                let expr = parse(input);
+                assert_eq!(expr, expected);
+            }
+        )*
+        }
+    }
+
+    parametrized_tests!(
+        empty_string: (
+            vec![eof(1)],
+            Err(SyntaxError { line: 1, message: "Expected expression.".to_owned() })
+        ),
+        number_literal: (
+            vec![
+                Token::new_number(123.1, 1),
+                eof(2),
+            ],
+            Ok(Expr::Literal(
+                Token::new_number(123.1, 1),
+            ))
+        ),
+        number_sum: (
+            vec![
+                Token::new_number(123.1, 1),
+                Token::new(TokenType::Plus, 1),
+                Token::new_number(456.2, 1),
+                eof(2),
+            ],
+            Ok(Expr::Binary(
+                Box::new(Expr::Literal(Token::new_number(123.1, 1))),
+                Token::new(TokenType::Plus, 1),
+                Box::new(Expr::Literal(Token::new_number(456.2, 1))),
+            )),
+        ),
+        error_sum_without_second_operand: (
+            vec![
+                Token::new_number(123.1, 1),
+                Token::new(TokenType::Plus, 1),
+                eof(2),
+            ],
+            Err(SyntaxError { line: 2, message: "Expected expression.".to_owned() })
+        ),
+        grouping_with_binary_inside: (
+            vec![
+                Token::new(TokenType::LeftParen, 1),
+                Token::new_number(123.1, 1),
+                Token::new(TokenType::Plus, 1),
+                Token::new_number(456.2, 1),
+                Token::new(TokenType::RightParen, 1),
+                eof(2),
+            ],
+            Ok(Expr::Grouping(
+                Box::new(Expr::Binary(
+                    Box::new(Expr::Literal(Token::new_number(123.1, 1))),
+                    Token::new(TokenType::Plus, 1),
+                    Box::new(Expr::Literal(Token::new_number(456.2, 1))),
+                )),
+            )),
+        ),
+        grouping_with_unary_minus: (
+            vec![
+                Token::new(TokenType::LeftParen, 1),
+                Token::new(TokenType::Minus, 1),
+                Token::new_number(456.2, 1),
+                Token::new(TokenType::RightParen, 1),
+                eof(2),
+            ],
+            Ok(Expr::Grouping(
+                Box::new(Expr::Unary(
+                    Token::new(TokenType::Minus, 1),
+                    Box::new(Expr::Literal(Token::new_number(456.2, 1))),
+                )),
+            )),
+        ),
+        error_grouping_no_right_paren: (
+            vec![
+                Token::new(TokenType::LeftParen, 1),
+                Token::new_number(123.1, 1),
+                Token::new(TokenType::Plus, 1),
+                Token::new_number(456.2, 1),
+                eof(2),
+            ],
+            Err(
+                SyntaxError {
+                    message: "Expect ')' after expression".to_owned(),
+                    line: 1,
+                },
+            ),
+        ),
+        error_unary_no_operand: (
+            vec![
+                Token::new(TokenType::Minus, 1),
+                eof(2),
+            ],
+            Err(
+                SyntaxError {
+                    message: "Expected expression.".to_owned(),
+                    line: 2,
+                },
+            )
         ),
     );
 }

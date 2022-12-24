@@ -98,3 +98,13 @@ pub struct Token {
     // TODO: literal
     pub line: u32,
 }
+
+impl Token {
+    pub fn new(type_: TokenType, line: u32) -> Token {
+        Token { type_, line }
+    }
+
+    pub fn new_number(n: f64, line: u32) -> Token {
+        Token::new(TokenType::Number(n), line)
+    }
+}
