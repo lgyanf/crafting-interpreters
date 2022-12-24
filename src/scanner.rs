@@ -2,14 +2,14 @@ use std::{iter::Peekable, str::Chars, vec::Vec};
 
 use crate::token::{Token, TokenType};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LexicalErrorKind {
     UnexpectedCharacter(char),
     UnterminatedString,
     InvalidNumberLiteral,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct LexicalError {
     pub line: u32,
     pub kind: LexicalErrorKind,
@@ -74,7 +74,7 @@ fn consume_number(
             match it.peek() {
                 Some(cc) if cc.is_ascii_digit() => {
                     decimal_place += 1.0;
-                    n = n + (0.1 as f64).powf(decimal_place) * char_to_f64(*cc);
+                    n += 0.1_f64.powf(decimal_place) * char_to_f64(*cc);
                     current_char = it.next();
                 }
                 Some(cc) if *cc == '\n' || cc.is_whitespace() => {
@@ -129,7 +129,7 @@ fn consume_identifier_or_keyword(
             _ => break,
         }
     }
-    return Ok(Some(try_match_keyword(&accumulator)));
+    Ok(Some(try_match_keyword(&accumulator)))
 }
 
 pub fn scan(source: &String) -> Result<Vec<Token>, LexicalError> {
@@ -232,7 +232,7 @@ pub fn scan(source: &String) -> Result<Vec<Token>, LexicalError> {
     }
     tokens.push(Token {
         type_: TokenType::EOF,
-        line: line,
+        line,
     });
     Ok(tokens)
 }

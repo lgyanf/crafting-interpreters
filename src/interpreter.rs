@@ -14,7 +14,7 @@ struct Interpreter {
 impl Interpreter {}
 
 fn run(program: &String) -> Result<(), Box<dyn Error>> {
-    let tokens = scanner::scan(&program);
+    let tokens = scanner::scan(program);
     match tokens {
         Ok(tokens) => println!("{:?}", tokens),
         Err(e) => error(e.line, &format!("{:?}", e.kind)),

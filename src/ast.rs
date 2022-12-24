@@ -29,20 +29,20 @@ impl visit::Visitor for AstPrinter {
         match expr {
             Expr::Literal(token) => token.type_.to_string(),
             Expr::Unary(op, e) => {
-                format!("({} {})", op.type_.to_string(), self.visit_expr(&e))
+                format!("({} {})", op.type_.to_string(), self.visit_expr(e))
             }
             Expr::Binary(left, op, right) => format!(
                 "({} {} {})",
                 op.type_.to_string(),
-                self.visit_expr(&left),
-                self.visit_expr(&right)
+                self.visit_expr(left),
+                self.visit_expr(right)
             ),
-            Expr::Grouping(e) => format!("(group {})", self.visit_expr(&e)),
+            Expr::Grouping(e) => format!("(group {})", self.visit_expr(e)),
         }
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct SyntaxError {
     line: u32,
     message: String,
@@ -106,7 +106,7 @@ impl Parser<'_> {
             let right = self.unary()?;
             return Ok(Expr::Unary(operator, Box::new(right)));
         }
-        return Ok(self.primary()?);
+        self.primary()
     }
 
     fn primary(&mut self) -> Result<Expr, SyntaxError> {
@@ -159,9 +159,8 @@ impl Parser<'_> {
 
     fn synchronize(&mut self) {
         while let Some(token) = self.token_iterator.next() {
-            match token.type_ {
-                TokenType::Semicolon => return,
-                _ => {}
+            if token.type_ == TokenType::Semicolon {
+                return;
             }
             match self.token_iterator.peek() {
                 None => return,
