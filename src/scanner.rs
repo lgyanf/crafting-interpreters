@@ -134,7 +134,7 @@ fn consume_identifier_or_keyword(
 
 pub fn scan(source: &String) -> Result<Vec<Token>, LexicalError> {
     let mut tokens: Vec<Token> = Vec::new();
-    let (mut line, mut start, mut current): (u32, usize, usize) = (1, 0, 0);
+    let mut line = 1u32;
     let mut it = source.chars().peekable();
     while let Some(c) = it.next() {
         let token_type_opt = match c {
