@@ -132,7 +132,7 @@ fn consume_identifier_or_keyword(
     Ok(Some(try_match_keyword(&accumulator)))
 }
 
-pub fn scan(source: &String) -> Result<Vec<Token>, LexicalError> {
+pub fn scan(source: &str) -> Result<Vec<Token>, LexicalError> {
     let mut tokens: Vec<Token> = Vec::new();
     let mut line = 1u32;
     let mut it = source.chars().peekable();
