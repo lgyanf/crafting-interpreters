@@ -29,11 +29,11 @@ impl visit::Visitor for AstPrinter {
         match expr {
             Expr::Literal(token) => token.type_.to_string(),
             Expr::Unary(op, e) => {
-                format!("({} {})", op.type_.to_string(), self.visit_expr(e))
+                format!("({} {})", op.type_, self.visit_expr(e))
             }
             Expr::Binary(left, op, right) => format!(
                 "({} {} {})",
-                op.type_.to_string(),
+                op.type_,
                 self.visit_expr(left),
                 self.visit_expr(right)
             ),

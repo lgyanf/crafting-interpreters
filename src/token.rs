@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum TokenType {
     LeftParen,
@@ -45,9 +47,9 @@ pub enum TokenType {
     Eof,
 }
 
-impl TokenType {
-    pub fn to_string(&self) -> String {
-        match self {
+impl Display for TokenType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ch = match self {
             TokenType::LeftParen => "(".to_owned(),
             TokenType::RightParen => ")".to_owned(),
             TokenType::LeftBrace => "{".to_owned(),
@@ -87,7 +89,8 @@ impl TokenType {
             TokenType::Var => "var".to_owned(),
             TokenType::While => "while".to_owned(),
             TokenType::Eof => "EOF".to_owned(),
-        }
+        };
+        write!(f, "{}", ch)
     }
 }
 

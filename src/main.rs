@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = env::args();
     match args.len() {
         1 => interpreter::run_prompt(),
-        2 => interpreter::run_file(args.last().unwrap()),
+        2 => interpreter::run_file(&args.last().unwrap()),
         _ => {
             println!("Usage: lox [script]");
             process::exit(1);

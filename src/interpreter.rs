@@ -13,7 +13,7 @@ struct Interpreter {
 
 impl Interpreter {}
 
-fn run(program: &String) -> Result<(), Box<dyn Error>> {
+fn run(program: &str) -> Result<(), Box<dyn Error>> {
     let tokens = scanner::scan(program);
     match tokens {
         Ok(tokens) => println!("{:?}", tokens),
@@ -23,16 +23,16 @@ fn run(program: &String) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn error(line: u32, message: &String) {
-    report(line, &"".to_owned(), message);
+fn error(line: u32, message: &str) {
+    report(line, "", message);
 }
 
-fn report(line: u32, where_: &String, message: &String) -> Result<(), io::Error> {
+fn report(line: u32, where_: &str, message: &str) -> Result<(), io::Error> {
     let mut stderr = io::stderr();
     writeln!(&mut stderr, "[line {}] Error{}: {}", line, where_, message)
 }
 
-pub fn run_file(path: String) -> Result<(), Box<dyn Error>> {
+pub fn run_file(path: &str) -> Result<(), Box<dyn Error>> {
     let program = fs::read_to_string(path)?;
     run(&program)
 }
