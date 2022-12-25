@@ -238,7 +238,7 @@ mod parser_tests {
 
     fn eof(line: u32) -> Token {
         Token {
-            type_: TokenType::EOF,
+            type_: TokenType::Eof,
             line,
         }
     }

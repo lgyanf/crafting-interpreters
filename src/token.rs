@@ -42,7 +42,7 @@ pub enum TokenType {
     Var,
     While,
 
-    EOF,
+    Eof,
 }
 
 impl TokenType {
@@ -86,7 +86,7 @@ impl TokenType {
             TokenType::True => "true".to_owned(),
             TokenType::Var => "var".to_owned(),
             TokenType::While => "while".to_owned(),
-            TokenType::EOF => "EOF".to_owned(),
+            TokenType::Eof => "EOF".to_owned(),
         }
     }
 }

@@ -231,7 +231,7 @@ pub fn scan(source: &str) -> Result<Vec<Token>, LexicalError> {
         }
     }
     tokens.push(Token {
-        type_: TokenType::EOF,
+        type_: TokenType::Eof,
         line,
     });
     Ok(tokens)
@@ -257,20 +257,20 @@ mod tests {
         empty_string: (
             "",
             Ok(vec![
-                Token{ type_: TokenType::EOF, line: 1 },
+                Token{ type_: TokenType::Eof, line: 1 },
             ])
         ),
         comment: (
             "// test",
             Ok(vec![
-                Token{ type_: TokenType::EOF, line: 1, },
+                Token{ type_: TokenType::Eof, line: 1, },
             ])
         ),
         comment_with_line_break: (
             "// test
             ",
             Ok(vec![
-                Token{ type_: TokenType::EOF, line: 2, },
+                Token{ type_: TokenType::Eof, line: 2, },
             ])
         ),
         braces_and_parenthesis: (
@@ -280,14 +280,14 @@ mod tests {
                 Token{ type_: TokenType::LeftBrace, line: 1, },
                 Token{ type_: TokenType::RightBrace, line: 1, },
                 Token{ type_: TokenType::RightParen, line: 1, },
-                Token{ type_: TokenType::EOF, line: 1, },
+                Token{ type_: TokenType::Eof, line: 1, },
             ])
         ),
         string_literal: (
             "\"abc\"",
             Ok(vec![
                 Token{ type_: TokenType::String("abc".to_owned()), line: 1, },
-                Token{ type_: TokenType::EOF, line: 1, },
+                Token{ type_: TokenType::Eof, line: 1, },
             ])
         ),
         unterminated_string_literal: (
@@ -301,14 +301,14 @@ mod tests {
             "123",
             Ok(vec![
                 Token{ type_: TokenType::Number(123.0), line: 1, },
-                Token{ type_: TokenType::EOF, line: 1, },
+                Token{ type_: TokenType::Eof, line: 1, },
             ])
         ),
         float_literal: (
             "123.5",
             Ok(vec![
                 Token{ type_: TokenType::Number(123.5), line: 1, },
-                Token{ type_: TokenType::EOF, line: 1, },
+                Token{ type_: TokenType::Eof, line: 1, },
             ])
         ),
         float_literal_with_line_break: (
@@ -316,7 +316,7 @@ mod tests {
             ",
             Ok(vec![
                 Token{ type_: TokenType::Number(123.5), line: 1, },
-                Token{ type_: TokenType::EOF, line: 2, },
+                Token{ type_: TokenType::Eof, line: 2, },
             ])
         ),
         error_leading_decimal_point: (
@@ -339,21 +339,21 @@ mod tests {
             "class",
             Ok(vec![
                 Token{ type_: TokenType::Class, line: 1, },
-                Token{ type_: TokenType::EOF, line: 1, },
+                Token{ type_: TokenType::Eof, line: 1, },
             ]),
         ),
         identifier_classs: (
             "classs",
             Ok(vec![
                 Token{ type_: TokenType::Identifier("classs".to_owned()), line: 1, },
-                Token{ type_: TokenType::EOF, line: 1, },
+                Token{ type_: TokenType::Eof, line: 1, },
             ]),
         ),
         identifier_alphanumeric: (
             "test123",
             Ok(vec![
                 Token{ type_: TokenType::Identifier("test123".to_owned()), line: 1, },
-                Token{ type_: TokenType::EOF, line: 1, },
+                Token{ type_: TokenType::Eof, line: 1, },
             ]),
         ),
     }
