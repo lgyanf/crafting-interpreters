@@ -10,7 +10,7 @@ pub enum Expr {
     Grouping(Box<Expr>),
 }
 
-mod visit {
+pub mod visit {
     use super::*;
 
     pub trait Visitor {
@@ -282,6 +282,26 @@ mod parser_tests {
                 Token::new(TokenType::Plus, 1),
                 Box::new(Expr::Literal(Token::new_number(456.2, 1))),
             )),
+        ),
+        binary_priorities: (
+            vec![
+                Token::new_number(1.0, 1),
+                Token::new(TokenType::Plus, 1),
+                Token::new_number(2.0, 1),
+                Token::new(TokenType::Star, 1),
+                Token::new_number(3.0, 1),
+                eof(2),
+            ],
+            Ok(Expr::Binary(
+                Box::new(Expr::Literal(Token::new_number(1.0, 1))),
+                Token::new(TokenType::Plus, 1),
+                Box::new(Expr::Binary(
+                    Box::new(Expr::Literal(Token::new_number(2.0, 1))),
+                    Token::new(TokenType::Star, 1),
+                    Box::new(Expr::Literal(Token::new_number(3.0, 1))),
+                )),
+            )),
+
         ),
         error_sum_without_second_operand: (
             vec![
