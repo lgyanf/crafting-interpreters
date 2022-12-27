@@ -46,11 +46,11 @@ impl Interpreter {
     fn unary_op(&mut self, op: &Token, value: &ast::Expr) -> Result<Value, RuntimeError> {
         match op.type_ {
             TokenType::Bang => {
-                let expr = self.visit_expr(&value)?;
+                let expr = self.visit_expr(value)?;
                 Ok(Value::Boolean(!Self::is_truthy(&expr)))
             }
             TokenType::Minus => {
-                let expr_value = self.visit_expr(&value)?;
+                let expr_value = self.visit_expr(value)?;
                 match expr_value {
                     Value::Number(n) => Ok(Value::Number(-1.0 * n)),
                     _ => Err(RuntimeError {
@@ -70,6 +70,42 @@ impl Interpreter {
             _ => true,
         }
     }
+
+    fn binary_op(
+        &mut self,
+        left: &ast::Expr,
+        op: &Token,
+        right: &ast::Expr,
+    ) -> Result<Value, RuntimeError> {
+        let left_value = self.visit_expr(left)?;
+        let right_value = self.visit_expr(right)?;
+        match (&left_value, &right_value) {
+            (Value::Number(l), Value::Number(r)) => {
+                let result = Self::binary_arithmentic_op(*l, op, *r)?;
+                Ok(Value::Number(result))
+            }
+            _ => Err(RuntimeError {
+                line: op.line,
+                message: format!(
+                    "Expected two numbers, got ({}, {})",
+                    left_value, right_value
+                ),
+            }),
+        }
+    }
+
+    fn binary_arithmentic_op(left: f64, op: &Token, right: f64) -> Result<f64, RuntimeError> {
+        match op.type_ {
+            TokenType::Minus => Ok(left - right),
+            TokenType::Plus => Ok(left + right),
+            TokenType::Star => Ok(left * right),
+            TokenType::Slash => Ok(left / right),
+            _ => Err(RuntimeError {
+                line: op.line,
+                message: format!("Unknown binary operator: {}", op.type_),
+            }),
+        }
+    }
 }
 
 impl ast::visit::Visitor for Interpreter {
@@ -85,8 +121,8 @@ impl ast::visit::Visitor for Interpreter {
                 _ => unreachable!("Unsupported literal type: {}", token.type_),
             },
             ast::Expr::Unary(op, token) => self.unary_op(op, token.as_ref()),
-            ast::Expr::Binary(_, _, _) => todo!(),
-            ast::Expr::Grouping(_) => todo!(),
+            ast::Expr::Binary(l, op, r) => self.binary_op(l, op, r),
+            ast::Expr::Grouping(expr) => self.visit_expr(expr),
         }
     }
 }
