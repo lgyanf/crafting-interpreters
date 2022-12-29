@@ -6,6 +6,7 @@ use std::error::Error;
 use std::process;
 
 mod ast;
+mod error;
 mod interpreter;
 mod scanner;
 mod token;

@@ -1,19 +1,9 @@
 use std::{iter::Peekable, str::Chars, vec::Vec};
 
-use crate::token::{Token, TokenType};
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum LexicalErrorKind {
-    UnexpectedCharacter(char),
-    UnterminatedString,
-    InvalidNumberLiteral,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct LexicalError {
-    pub line: u32,
-    pub kind: LexicalErrorKind,
-}
+use crate::{
+    error::{LoxError, LoxErrorKind},
+    token::{Token, TokenType},
+};
 
 type SourceIterator<'a> = Peekable<Chars<'a>>;
 
@@ -42,11 +32,19 @@ fn char_to_f64(c: char) -> f64 {
     ((c as u32) - ('0' as u32)) as f64
 }
 
+fn is_allowed_after_number(c: char) -> bool {
+    match c {
+        '/' | '*' | '+' | '-' | ')' => true,
+        _ if c.is_whitespace() => true,
+        _ => false,
+    }
+}
+
 fn consume_number(
     it: &mut SourceIterator,
     first_char: char,
     line: u32,
-) -> Result<Option<TokenType>, LexicalError> {
+) -> Result<Option<TokenType>, LoxError> {
     let mut n: f64 = char_to_f64(first_char);
     loop {
         let peek = it.peek();
@@ -55,39 +53,57 @@ fn consume_number(
                 n = n * 10.0 + char_to_f64(*cc);
                 it.next();
             }
-            Some(cc) if *cc == '\n' || cc.is_whitespace() || *cc == '.' => {
-                break;
-            }
+            Some(cc) if is_allowed_after_number(*cc) || *cc == '.' => break,
             None => break,
             _ => {
-                return Err(LexicalError {
-                    kind: LexicalErrorKind::InvalidNumberLiteral,
+                return Err(LoxError {
+                    kind: LoxErrorKind::Lexical,
+                    message: format!("Invalid number literal: {}", peek.unwrap()),
                     line,
                 })
             }
         }
     }
-    if it.peek() == Some(&'.') {
-        let mut current_char = it.next();
-        let mut decimal_place: f64 = 0.0;
-        loop {
-            match it.peek() {
-                Some(cc) if cc.is_ascii_digit() => {
-                    decimal_place += 1.0;
-                    n += 0.1_f64.powf(decimal_place) * char_to_f64(*cc);
-                    current_char = it.next();
-                }
-                Some(cc) if *cc == '\n' || cc.is_whitespace() => {
-                    break;
-                }
-                None if current_char != Some('.') => break,
-                _ => {
-                    return Err(LexicalError {
-                        kind: LexicalErrorKind::InvalidNumberLiteral,
-                        line,
-                    })
+    match it.peek() {
+        Some(c) if *c == '.' => {
+            let mut decimal_place: f64 = 0.0;
+            let mut consumed_at_least_one_digit_after_dot = false;
+            loop {
+                // consume dot
+                it.next();
+                let peek = it.peek();
+                match peek {
+                    Some(cc) if cc.is_ascii_digit() => {
+                        decimal_place += 1.0;
+                        n += 0.1_f64.powf(decimal_place) * char_to_f64(*cc);
+                        consumed_at_least_one_digit_after_dot = true;
+                    }
+                    Some(cc)
+                        if is_allowed_after_number(*cc)
+                            && consumed_at_least_one_digit_after_dot =>
+                    {
+                        break
+                    }
+                    None if consumed_at_least_one_digit_after_dot => break,
+                    _ => {
+                        return Err(LoxError {
+                            kind: LoxErrorKind::Lexical,
+                            // TODO: fix error message
+                            message: "Invalid number literal".to_owned(),
+                            line,
+                        });
+                    }
                 }
             }
+        }
+        None => {}
+        Some(c) if is_allowed_after_number(*c) => {}
+        _ => {
+            return Err(LoxError {
+                kind: LoxErrorKind::Lexical,
+                line,
+                message: "Invalid number literal".to_owned(),
+            })
         }
     }
     Ok(Some(TokenType::Number(n)))
@@ -118,7 +134,7 @@ fn try_match_keyword(s: &String) -> TokenType {
 fn consume_identifier_or_keyword(
     it: &mut SourceIterator,
     first_char: char,
-) -> Result<Option<TokenType>, LexicalError> {
+) -> Result<Option<TokenType>, LoxError> {
     let mut accumulator = String::new();
     accumulator.push(first_char);
     loop {
@@ -132,7 +148,7 @@ fn consume_identifier_or_keyword(
     Ok(Some(try_match_keyword(&accumulator)))
 }
 
-pub fn scan(source: &str) -> Result<Vec<Token>, LexicalError> {
+pub fn scan(source: &str) -> Result<Vec<Token>, LoxError> {
     let mut tokens: Vec<Token> = Vec::new();
     let mut line = 1u32;
     let mut it = source.chars().peekable();
@@ -146,8 +162,9 @@ pub fn scan(source: &str) -> Result<Vec<Token>, LexicalError> {
             '.' => {
                 let peek = it.peek();
                 match peek {
-                    Some(cc) if cc.is_ascii_digit() => Err(LexicalError {
-                        kind: LexicalErrorKind::InvalidNumberLiteral,
+                    Some(cc) if cc.is_ascii_digit() => Err(LoxError {
+                        kind: LoxErrorKind::Lexical,
+                        message: format!("Invalid number literal: {}", peek.unwrap()),
                         line,
                     }),
                     _ => Ok(Some(TokenType::Dot)),
@@ -188,16 +205,17 @@ pub fn scan(source: &str) -> Result<Vec<Token>, LexicalError> {
             }
             '"' => {
                 let mut accumulator = String::new();
-                let mut error: Option<LexicalError> = None;
+                let mut error: Option<LoxError> = None;
                 loop {
                     let cc = it.next();
                     match cc {
                         Some('"') => break,
                         Some('\n') => line += 1,
                         None => {
-                            error = Some(LexicalError {
+                            error = Some(LoxError {
+                                kind: LoxErrorKind::Lexical,
                                 line,
-                                kind: LexicalErrorKind::UnterminatedString,
+                                message: "Unterminated string".to_owned(),
                             });
                             break;
                         }
@@ -218,8 +236,9 @@ pub fn scan(source: &str) -> Result<Vec<Token>, LexicalError> {
                 Ok(None)
             }
             cc if cc.is_whitespace() => Ok(None),
-            _ => Err(LexicalError {
-                kind: LexicalErrorKind::UnexpectedCharacter(c),
+            _ => Err(LoxError {
+                kind: LoxErrorKind::Lexical,
+                message: format!("Unexpected character: {}", c),
                 line,
             }),
         }?;
@@ -290,10 +309,18 @@ mod tests {
                 Token{ type_: TokenType::Eof, line: 1, },
             ])
         ),
+        string_literal_with_numbers: (
+            "\"123\"",
+            Ok(vec![
+                Token{ type_: TokenType::String("123".to_owned()), line: 1, },
+                Token{ type_: TokenType::Eof, line: 1, },
+            ])
+        ),
         unterminated_string_literal: (
             "\"abc",
-            Err(LexicalError {
-                kind: LexicalErrorKind::UnterminatedString,
+            Err(LoxError {
+                kind: LoxErrorKind::Lexical,
+                message: "Unterminated string".to_owned(),
                 line: 1,
             }),
         ),
@@ -305,9 +332,9 @@ mod tests {
             ])
         ),
         float_literal: (
-            "123.5",
+            "123.567",
             Ok(vec![
-                Token{ type_: TokenType::Number(123.5), line: 1, },
+                Token{ type_: TokenType::Number(123.567), line: 1, },
                 Token{ type_: TokenType::Eof, line: 1, },
             ])
         ),
@@ -321,19 +348,19 @@ mod tests {
         ),
         error_leading_decimal_point: (
             ".5",
-            Err(LexicalError { kind: LexicalErrorKind::InvalidNumberLiteral, line: 1}),
+            Err(LoxError { kind: LoxErrorKind::Lexical, line: 1, message: "Invalid number literal: 5".to_owned()}),
         ),
         error_trailing_decimal_point: (
             "5.",
-            Err(LexicalError { kind: LexicalErrorKind::InvalidNumberLiteral, line: 1}),
+            Err(LoxError { kind: LoxErrorKind::Lexical, line: 1, message: "Invalid number literal".to_owned()}),
         ),
         error_number_with_trailing_letters: (
             "123ff",
-            Err(LexicalError { kind: LexicalErrorKind::InvalidNumberLiteral, line: 1}),
+            Err(LoxError { kind: LoxErrorKind::Lexical, line: 1, message: "Invalid number literal: f".to_owned()}),
         ),
         error_float_number_with_trailing_letters: (
             "123.1ff",
-            Err(LexicalError { kind: LexicalErrorKind::InvalidNumberLiteral, line: 1}),
+            Err(LoxError { kind: LoxErrorKind::Lexical, line: 1, message: "Invalid number literal".to_owned()}),
         ),
         keyword_class: (
             "class",
@@ -354,6 +381,35 @@ mod tests {
             Ok(vec![
                 Token{ type_: TokenType::Identifier("test123".to_owned()), line: 1, },
                 Token{ type_: TokenType::Eof, line: 1, },
+            ]),
+        ),
+        int_sum: (
+            "1+2",
+            Ok(vec![
+                Token { type_: TokenType::Number(1.0), line: 1 },
+                Token { type_: TokenType::Plus, line: 1 },
+                Token { type_: TokenType::Number(2.0), line: 1 },
+                Token{ type_: TokenType::Eof, line: 1, },
+            ]),
+        ),
+        int_float_sum: (
+            "1 + 2.0
+            ",
+            Ok(vec![
+                Token { type_: TokenType::Number(1.0), line: 1 },
+                Token { type_: TokenType::Plus, line: 1 },
+                Token { type_: TokenType::Number(2.0), line: 1 },
+                Token{ type_: TokenType::Eof, line: 2, },
+            ]),
+        ),
+        float_sum: (
+            "1.1+2.0
+            ",
+            Ok(vec![
+                Token { type_: TokenType::Number(1.1), line: 1 },
+                Token { type_: TokenType::Plus, line: 1 },
+                Token { type_: TokenType::Number(2.0), line: 1 },
+                Token{ type_: TokenType::Eof, line: 2, },
             ]),
         ),
     }

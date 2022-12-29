@@ -1,6 +1,7 @@
+use float_cmp::approx_eq;
 use std::fmt::Display;
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum TokenType {
     LeftParen,
     RightParen,
@@ -45,6 +46,17 @@ pub enum TokenType {
     While,
 
     Eof,
+}
+
+impl PartialEq for TokenType {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Identifier(l0), Self::Identifier(r0)) => *l0 == *r0,
+            (Self::String(l0), Self::String(r0)) => *l0 == *r0,
+            (Self::Number(l0), Self::Number(r0)) => approx_eq!(f64, *l0, *r0),
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
 }
 
 impl Display for TokenType {
@@ -94,11 +106,9 @@ impl Display for TokenType {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub type_: TokenType,
-    // pub lexeme: String,
-    // TODO: literal
     pub line: u32,
 }
 

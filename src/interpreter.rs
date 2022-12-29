@@ -7,11 +7,13 @@ use std::io::Write;
 
 use crate::ast;
 use crate::ast::visit::Visitor;
+use crate::error::LoxError;
+use crate::error::LoxErrorKind;
 use crate::scanner;
 use crate::token::Token;
 use crate::token::TokenType;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum Value {
     Nil,
     Boolean(bool),
@@ -37,13 +39,12 @@ struct Interpreter {
     had_error: bool,
 }
 
-struct RuntimeError {
-    line: u32,
-    message: String,
-}
-
 impl Interpreter {
-    fn unary_op(&mut self, op: &Token, value: &ast::Expr) -> Result<Value, RuntimeError> {
+    fn new() -> Self {
+        Interpreter { had_error: false }
+    }
+
+    fn unary_op(&mut self, op: &Token, value: &ast::Expr) -> Result<Value, LoxError> {
         match op.type_ {
             TokenType::Bang => {
                 let expr = self.visit_expr(value)?;
@@ -53,7 +54,8 @@ impl Interpreter {
                 let expr_value = self.visit_expr(value)?;
                 match expr_value {
                     Value::Number(n) => Ok(Value::Number(-1.0 * n)),
-                    _ => Err(RuntimeError {
+                    _ => Err(LoxError {
+                        kind: LoxErrorKind::Runtime,
                         line: op.line,
                         message: format!("Expected a number, got {}", expr_value),
                     }),
@@ -76,31 +78,38 @@ impl Interpreter {
         left: &ast::Expr,
         op: &Token,
         right: &ast::Expr,
-    ) -> Result<Value, RuntimeError> {
+    ) -> Result<Value, LoxError> {
         let left_value = self.visit_expr(left)?;
         let right_value = self.visit_expr(right)?;
-        match (&left_value, &right_value) {
-            (Value::Number(l), Value::Number(r)) => {
+        match (&left_value, &op.type_, &right_value) {
+            (Value::Number(l), _, Value::Number(r)) => {
                 let result = Self::binary_arithmentic_op(*l, op, *r)?;
                 Ok(Value::Number(result))
             }
-            _ => Err(RuntimeError {
+            (Value::String(l), TokenType::Plus, Value::String(r)) => {
+                let mut result = l.clone();
+                result.push_str(r);
+                Ok(Value::String(result))
+            }
+            _ => Err(LoxError {
+                kind: LoxErrorKind::Runtime,
                 line: op.line,
                 message: format!(
-                    "Expected two numbers, got ({}, {})",
-                    left_value, right_value
+                    "Unsupported operand types for binary operator {} ({}, {})",
+                    op.type_, left_value, right_value
                 ),
             }),
         }
     }
 
-    fn binary_arithmentic_op(left: f64, op: &Token, right: f64) -> Result<f64, RuntimeError> {
+    fn binary_arithmentic_op(left: f64, op: &Token, right: f64) -> Result<f64, LoxError> {
         match op.type_ {
             TokenType::Minus => Ok(left - right),
             TokenType::Plus => Ok(left + right),
             TokenType::Star => Ok(left * right),
             TokenType::Slash => Ok(left / right),
-            _ => Err(RuntimeError {
+            _ => Err(LoxError {
+                kind: LoxErrorKind::Runtime,
                 line: op.line,
                 message: format!("Unknown binary operator: {}", op.type_),
             }),
@@ -109,7 +118,7 @@ impl Interpreter {
 }
 
 impl ast::visit::Visitor for Interpreter {
-    type Result = Result<Value, RuntimeError>;
+    type Result = Result<Value, LoxError>;
 
     fn visit_expr(&mut self, expr: &crate::ast::Expr) -> Self::Result {
         match expr {
@@ -127,28 +136,24 @@ impl ast::visit::Visitor for Interpreter {
     }
 }
 
-fn run(program: &str) -> Result<(), Box<dyn Error>> {
-    let tokens = scanner::scan(program);
-    match tokens {
-        Ok(tokens) => println!("{:?}", tokens),
-        Err(e) => error(e.line, &format!("{:?}", e.kind)),
-    };
+fn run_internal(program: &str) -> Result<Value, LoxError> {
+    let tokens = scanner::scan(program)?;
+    let expr = ast::parse(tokens)?;
+    let mut interpreter = Interpreter::new();
+    let result = interpreter.visit_expr(&expr)?;
+    Ok(result)
+}
 
+fn run(program: &str) -> Result<(), LoxError> {
+    let program_result = run_internal(program)?;
+    println!("{}", program_result);
     Ok(())
-}
-
-fn error(line: u32, message: &str) {
-    report(line, "", message);
-}
-
-fn report(line: u32, where_: &str, message: &str) -> Result<(), io::Error> {
-    let mut stderr = io::stderr();
-    writeln!(&mut stderr, "[line {}] Error{}: {}", line, where_, message)
 }
 
 pub fn run_file(path: &str) -> Result<(), Box<dyn Error>> {
     let program = fs::read_to_string(path)?;
-    run(&program)
+    run(&program)?;
+    Ok(())
 }
 
 pub fn run_prompt() -> Result<(), Box<dyn Error>> {
@@ -165,4 +170,56 @@ pub fn run_prompt() -> Result<(), Box<dyn Error>> {
         }
         run(&buffer);
     }
+}
+
+#[cfg(test)]
+mod run_tests {
+    use super::*;
+
+    macro_rules! parametrized_tests {
+        ($($name:ident: $value:expr,)*) => {
+        $(
+            #[test]
+            fn $name() {
+                let (input, expected) = $value;
+                assert_eq!(expected, run_internal(input));
+            }
+        )*
+        }
+    }
+
+    parametrized_tests!(
+        empty_string: (
+            "",
+            Err(LoxError {
+                kind: LoxErrorKind::Syntax,
+                line: 1,
+                message: "Expected expression.".to_owned(),
+            })
+        ),
+        int_sum: (
+            "1+2",
+            Ok(Value::Number(3.0))
+        ),
+        arithmetic_operator_priority: (
+            "2 + 2 * 2",
+            Ok(Value::Number(6.0)),
+        ),
+        grouping_priority: (
+            "2 * (2 + 2)",
+            Ok(Value::Number(8.0)),
+        ),
+        number_plus_string_produces_error: (
+            "\"abc\" + 123",
+            Err(LoxError {
+                kind: LoxErrorKind::Runtime,
+                line: 1,
+                message: "Unsupported operand types for binary operator + (String(abc), Number(123))".to_owned(),
+            }),
+        ),
+        string_sum: (
+            "\"abc\" + \"def\"",
+            Ok(Value::String("abcdef".to_owned())),
+        ),
+    );
 }

@@ -1,5 +1,6 @@
 use std::iter::Peekable;
 
+use crate::error::{LoxError, LoxErrorKind};
 use crate::token::{Token, TokenType};
 
 #[derive(PartialEq, Debug)]
@@ -42,23 +43,17 @@ impl visit::Visitor for AstPrinter {
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
-pub struct SyntaxError {
-    line: u32,
-    message: String,
-}
-
 struct Parser<'a> {
     // token_iterator: Peekable<Box<dyn Iterator<Item = Token>>>,
     token_iterator: Peekable<std::slice::Iter<'a, Token>>,
 }
 
 impl Parser<'_> {
-    fn expression(&mut self) -> Result<Expr, SyntaxError> {
+    fn expression(&mut self) -> Result<Expr, LoxError> {
         self.equality()
     }
 
-    fn equality(&mut self) -> Result<Expr, SyntaxError> {
+    fn equality(&mut self) -> Result<Expr, LoxError> {
         let mut left = self.comparison()?;
         while let Some(operator) =
             self.consume_if_matches(&[TokenType::BangEqual, TokenType::EqualEqual])
@@ -69,7 +64,7 @@ impl Parser<'_> {
         Ok(left)
     }
 
-    fn comparison(&mut self) -> Result<Expr, SyntaxError> {
+    fn comparison(&mut self) -> Result<Expr, LoxError> {
         let mut left = self.term()?;
         while let Some(operator) = self.consume_if_matches(&[
             TokenType::Greater,
@@ -83,7 +78,7 @@ impl Parser<'_> {
         Ok(left)
     }
 
-    fn term(&mut self) -> Result<Expr, SyntaxError> {
+    fn term(&mut self) -> Result<Expr, LoxError> {
         let mut left = self.factor()?;
         while let Some(operator) = self.consume_if_matches(&[TokenType::Minus, TokenType::Plus]) {
             let right = self.factor()?;
@@ -92,7 +87,7 @@ impl Parser<'_> {
         Ok(left)
     }
 
-    fn factor(&mut self) -> Result<Expr, SyntaxError> {
+    fn factor(&mut self) -> Result<Expr, LoxError> {
         let mut left = self.unary()?;
         while let Some(operator) = self.consume_if_matches(&[TokenType::Star, TokenType::Slash]) {
             let right = self.unary()?;
@@ -101,7 +96,7 @@ impl Parser<'_> {
         Ok(left)
     }
 
-    fn unary(&mut self) -> Result<Expr, SyntaxError> {
+    fn unary(&mut self) -> Result<Expr, LoxError> {
         if let Some(operator) = self.consume_if_matches(&[TokenType::Bang, TokenType::Minus]) {
             let right = self.unary()?;
             return Ok(Expr::Unary(operator, Box::new(right)));
@@ -109,7 +104,7 @@ impl Parser<'_> {
         self.primary()
     }
 
-    fn primary(&mut self) -> Result<Expr, SyntaxError> {
+    fn primary(&mut self) -> Result<Expr, LoxError> {
         match self.token_iterator.peek() {
             None => unreachable!(),
             Some(t) => match t.type_ {
@@ -129,13 +124,15 @@ impl Parser<'_> {
                             self.token_iterator.next();
                             Ok(Expr::Grouping(Box::new(expr)))
                         }
-                        _ => Err(SyntaxError {
+                        _ => Err(LoxError {
+                            kind: LoxErrorKind::Syntax,
                             line,
                             message: "Expect ')' after expression".to_owned(),
                         }),
                     }
                 }
-                _ => Err(SyntaxError {
+                _ => Err(LoxError {
+                    kind: LoxErrorKind::Syntax,
                     line: t.line,
                     message: "Expected expression.".to_owned(),
                 }),
@@ -180,7 +177,7 @@ impl Parser<'_> {
     }
 }
 
-pub fn parse(tokens: Vec<Token>) -> Result<Expr, SyntaxError> {
+pub fn parse(tokens: Vec<Token>) -> Result<Expr, LoxError> {
     let mut parser = Parser {
         token_iterator: tokens.iter().peekable(),
     };
@@ -259,7 +256,11 @@ mod parser_tests {
     parametrized_tests!(
         empty_string: (
             vec![eof(1)],
-            Err(SyntaxError { line: 1, message: "Expected expression.".to_owned() })
+            Err(LoxError {
+                kind: LoxErrorKind::Syntax,
+                line: 1,
+                message: "Expected expression.".to_owned()
+            })
         ),
         number_literal: (
             vec![
@@ -309,7 +310,11 @@ mod parser_tests {
                 Token::new(TokenType::Plus, 1),
                 eof(2),
             ],
-            Err(SyntaxError { line: 2, message: "Expected expression.".to_owned() })
+            Err(LoxError {
+                kind: LoxErrorKind::Syntax,
+                line: 2,
+                message: "Expected expression.".to_owned()
+            })
         ),
         grouping_with_binary_inside: (
             vec![
@@ -352,7 +357,8 @@ mod parser_tests {
                 eof(2),
             ],
             Err(
-                SyntaxError {
+                LoxError {
+                    kind: LoxErrorKind::Syntax,
                     message: "Expect ')' after expression".to_owned(),
                     line: 1,
                 },
@@ -364,7 +370,8 @@ mod parser_tests {
                 eof(2),
             ],
             Err(
-                SyntaxError {
+                LoxError {
+                    kind: LoxErrorKind::Syntax,
                     message: "Expected expression.".to_owned(),
                     line: 2,
                 },
