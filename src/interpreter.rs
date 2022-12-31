@@ -6,7 +6,7 @@ use std::io::BufRead;
 use std::io::Write;
 
 use crate::ast;
-use crate::ast::visit::Visitor;
+use crate::ast::{Expr, Visitor};
 use crate::error::LoxError;
 use crate::error::LoxErrorKind;
 use crate::scanner;
@@ -44,7 +44,7 @@ impl Interpreter {
         Interpreter { had_error: false }
     }
 
-    fn unary_op(&mut self, op: &Token, value: &ast::Expr) -> Result<Value, LoxError> {
+    fn unary_op(&mut self, op: &Token, value: &Expr) -> Result<Value, LoxError> {
         match op.type_ {
             TokenType::Bang => {
                 let expr = self.visit_expr(value)?;
@@ -73,12 +73,7 @@ impl Interpreter {
         }
     }
 
-    fn binary_op(
-        &mut self,
-        left: &ast::Expr,
-        op: &Token,
-        right: &ast::Expr,
-    ) -> Result<Value, LoxError> {
+    fn binary_op(&mut self, left: &Expr, op: &Token, right: &Expr) -> Result<Value, LoxError> {
         let left_value = self.visit_expr(left)?;
         let right_value = self.visit_expr(right)?;
         match (&left_value, &op.type_, &right_value) {
@@ -117,21 +112,21 @@ impl Interpreter {
     }
 }
 
-impl ast::visit::Visitor for Interpreter {
+impl Visitor for Interpreter {
     type Result = Result<Value, LoxError>;
 
     fn visit_expr(&mut self, expr: &crate::ast::Expr) -> Self::Result {
         match expr {
-            ast::Expr::Literal(token) => match &token.type_ {
+            Expr::Literal(token) => match &token.type_ {
                 TokenType::String(s) => Ok(Value::String(s.clone())),
                 TokenType::Number(n) => Ok(Value::Number(*n)),
                 TokenType::True => Ok(Value::Boolean(true)),
                 TokenType::False => Ok(Value::Boolean(false)),
                 _ => unreachable!("Unsupported literal type: {}", token.type_),
             },
-            ast::Expr::Unary(op, token) => self.unary_op(op, token.as_ref()),
-            ast::Expr::Binary(l, op, r) => self.binary_op(l, op, r),
-            ast::Expr::Grouping(expr) => self.visit_expr(expr),
+            Expr::Unary(op, token) => self.unary_op(op, token.as_ref()),
+            Expr::Binary(l, op, r) => self.binary_op(l, op, r),
+            Expr::Grouping(expr) => self.visit_expr(expr),
         }
     }
 }

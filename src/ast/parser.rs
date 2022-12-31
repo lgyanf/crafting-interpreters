@@ -1,50 +1,10 @@
 use std::iter::Peekable;
 
+use crate::ast::expr::Expr;
 use crate::error::{LoxError, LoxErrorKind};
 use crate::token::{Token, TokenType};
 
-#[derive(PartialEq, Debug)]
-pub enum Expr {
-    Literal(Token),
-    Unary(Token, Box<Expr>),
-    Binary(Box<Expr>, Token, Box<Expr>),
-    Grouping(Box<Expr>),
-}
-
-pub mod visit {
-    use super::*;
-
-    pub trait Visitor {
-        type Result;
-
-        fn visit_expr(&mut self, expr: &Expr) -> Self::Result;
-    }
-}
-
-struct AstPrinter {}
-
-impl visit::Visitor for AstPrinter {
-    type Result = String;
-
-    fn visit_expr(&mut self, expr: &Expr) -> Self::Result {
-        match expr {
-            Expr::Literal(token) => token.type_.to_string(),
-            Expr::Unary(op, e) => {
-                format!("({} {})", op.type_, self.visit_expr(e))
-            }
-            Expr::Binary(left, op, right) => format!(
-                "({} {} {})",
-                op.type_,
-                self.visit_expr(left),
-                self.visit_expr(right)
-            ),
-            Expr::Grouping(e) => format!("(group {})", self.visit_expr(e)),
-        }
-    }
-}
-
 struct Parser<'a> {
-    // token_iterator: Peekable<Box<dyn Iterator<Item = Token>>>,
     token_iterator: Peekable<std::slice::Iter<'a, Token>>,
 }
 
@@ -182,51 +142,6 @@ pub fn parse(tokens: Vec<Token>) -> Result<Expr, LoxError> {
         token_iterator: tokens.iter().peekable(),
     };
     parser.expression()
-}
-
-#[cfg(test)]
-
-mod ast_printer_tests {
-    use super::*;
-    use visit::*;
-
-    macro_rules! parametrized_tests {
-        ($($name:ident: $value:expr,)*) => {
-        $(
-            #[test]
-            fn $name() {
-                let (input, expected) = $value;
-                let mut printer = AstPrinter{};
-                let printed_ast = printer.visit_expr(&input);
-                assert_eq!(printed_ast, expected);
-            }
-        )*
-        }
-    }
-
-    parametrized_tests!(
-        example1: (
-            Expr::Binary(
-                Box::new(
-                    Expr::Unary(
-                        Token { type_: TokenType::Minus, line: 1 },
-                        Box::new(Expr::Literal(
-                            Token{ type_: TokenType::Number(123.0), line: 1}
-                        ))
-                    )
-                ),
-                Token { type_: TokenType::Star, line: 1},
-                Box::new(
-                    Expr::Grouping(
-                        Box::new(Expr::Literal(
-                            Token { type_: TokenType::Number(45.67), line: 1 }
-                        )),
-                    ),
-                ),
-            ),
-            "(* (- 123) (group 45.67))"
-        ),
-    );
 }
 
 #[cfg(test)]
