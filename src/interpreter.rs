@@ -127,6 +127,7 @@ impl Visitor for Interpreter {
             Expr::Unary(op, token) => self.unary_op(op, token.as_ref()),
             Expr::Binary(l, op, r) => self.binary_op(l, op, r),
             Expr::Grouping(expr) => self.visit_expr(expr),
+            Expr::Variable { name: _ } => todo!(),
         }
     }
 }

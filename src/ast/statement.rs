@@ -1,5 +1,7 @@
 use super::expr::Expr;
 
 pub enum Statement {
-    Var(String, Option<Expr>),
+    Expression { expr: Expr },
+    Print { expr: Expr },
+    Var { name: String, initializer: Option<Expr> },
 }

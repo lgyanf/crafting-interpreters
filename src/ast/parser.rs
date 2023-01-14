@@ -1,14 +1,89 @@
+use std::any::Any;
 use std::iter::Peekable;
 
 use crate::ast::expr::Expr;
 use crate::error::{LoxError, LoxErrorKind};
 use crate::token::{Token, TokenType};
 
+use super::Statement;
+
 struct Parser<'a> {
     token_iterator: Peekable<std::slice::Iter<'a, Token>>,
 }
 
 impl Parser<'_> {
+    fn parse(&mut self) -> Result<Vec<Statement>, Vec<LoxError>> {
+        let mut statements: Vec<Statement> = Vec::new();
+        let mut errors: Vec<LoxError> = Vec::new();
+        while let Some(token) = self.token_iterator.next() {
+
+        }
+        Ok(statements)
+    }
+
+    fn declaration(&mut self) -> Result<Statement, LoxError> {
+        let peek = self.token_iterator.peek();
+        match peek {
+            Some(t) if t.type_ == TokenType::Var => {
+                self.var_declaration()
+            }
+            _ => self.statement()
+        }
+    }
+
+    fn var_declaration(&mut self) -> Result<Statement, LoxError> {
+        // consume var keyword
+        let last_token = self.token_iterator.next().unwrap();
+        let name = match self.token_iterator.peek() {
+            Some(token) => {
+                match &token.type_ {
+                    TokenType::Identifier(name) => name,
+                    _ => return Err(LoxError {
+                        kind: LoxErrorKind::Syntax,
+                        message: "Expected variable name".to_owned(),
+                        line: token.line,
+                    })
+                }
+            }
+            _ => return Err(LoxError {
+                kind: LoxErrorKind::Syntax,
+                message: "Expected variable name".to_owned(),
+                // TODO: handle position better
+                line: last_token.line,
+            })
+        };
+        let initializer = match self.token_iterator.peek() {
+            Some(token) if token.type_ == TokenType::Equal => {
+                self.token_iterator.next().unwrap();
+                Some(self.expression()?)
+            },
+            _ => None,
+        };
+        self.consume_semicolon("variable declaration")?;
+        Ok(Statement::Var { name: name.clone(), initializer })
+    }
+
+    fn statement(&mut self) -> Result<Statement, LoxError> {
+        match self.token_iterator.peek() {
+            Some(token) if token.type_ == TokenType::Print => self.print_statement(),
+            _ => self.expression_statement()
+        }
+    }
+
+    fn print_statement(&mut self) -> Result<Statement, LoxError> {
+        // consume 'print' keyword
+        let last_token = self.token_iterator.next().unwrap();
+        let expr = self.expression()?;
+        self.consume_semicolon("after value")?;
+        Ok(Statement::Print { expr, })
+    }
+
+    fn expression_statement(&mut self) -> Result<Statement, LoxError> {
+        let expr = self.expression()?;
+        self.consume_semicolon("after expression")?;
+        Ok(Statement::Expression { expr, })
+    }
+
     fn expression(&mut self) -> Result<Expr, LoxError> {
         self.equality()
     }
@@ -67,7 +142,7 @@ impl Parser<'_> {
     fn primary(&mut self) -> Result<Expr, LoxError> {
         match self.token_iterator.peek() {
             None => unreachable!(),
-            Some(t) => match t.type_ {
+            Some(t) => match &t.type_ {
                 TokenType::False
                 | TokenType::True
                 | TokenType::Nil
@@ -75,6 +150,7 @@ impl Parser<'_> {
                 | TokenType::String(_) => Ok(Expr::Literal(
                     (*self.token_iterator.next().unwrap()).clone(),
                 )),
+                TokenType::Identifier(name) => Ok(Expr::Variable { name: name.clone() }),
                 TokenType::LeftParen => {
                     let line = t.line;
                     self.token_iterator.next().unwrap();
@@ -87,7 +163,7 @@ impl Parser<'_> {
                         _ => Err(LoxError {
                             kind: LoxErrorKind::Syntax,
                             line,
-                            message: "Expect ')' after expression".to_owned(),
+                            message: "Expected ')' after expression".to_owned(),
                         }),
                     }
                 }
@@ -111,6 +187,21 @@ impl Parser<'_> {
                 Some((*self.token_iterator.next().unwrap()).clone())
             }
             _ => None,
+        }
+    }
+
+    fn consume_semicolon(&mut self, error_message_suffix: &str) -> Result<(), LoxError> {
+        match self.token_iterator.peek() {
+            Some(token) if token.type_ == TokenType::Semicolon => {
+                self.token_iterator.next();
+                Ok(())
+            }
+            _ => Err(LoxError {
+                kind: LoxErrorKind::Syntax,
+                // TODO: fix line position
+                line: 0,
+                message: format!("Expected ';' after {}", error_message_suffix)
+            })
         }
     }
 
@@ -274,7 +365,7 @@ mod parser_tests {
             Err(
                 LoxError {
                     kind: LoxErrorKind::Syntax,
-                    message: "Expect ')' after expression".to_owned(),
+                    message: "Expected ')' after expression".to_owned(),
                     line: 1,
                 },
             ),
