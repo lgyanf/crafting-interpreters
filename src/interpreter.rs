@@ -132,18 +132,20 @@ impl Visitor for Interpreter {
     }
 }
 
-fn run_internal(program: &str) -> Result<Value, LoxError> {
-    let tokens = scanner::scan(program)?;
-    let expr = ast::parse(tokens)?;
-    let mut interpreter = Interpreter::new();
-    let result = interpreter.visit_expr(&expr)?;
-    Ok(result)
+fn run_internal(_program: &str) -> Result<Value, LoxError> {
+    // let tokens = scanner::scan(program)?;
+    // let expr = ast::parse(tokens)?;
+    // let mut interpreter = Interpreter::new();
+    // let result = interpreter.visit_expr(&expr)?;
+    // Ok(result)
+    todo!()
 }
 
-fn run(program: &str) -> Result<(), LoxError> {
-    let program_result = run_internal(program)?;
-    println!("{}", program_result);
-    Ok(())
+fn run(_program: &str) -> Result<(), LoxError> {
+    // let program_result = run_internal(program)?;
+    // println!("{}", program_result);
+    // Ok(())
+    todo!()
 }
 
 pub fn run_file(path: &str) -> Result<(), Box<dyn Error>> {

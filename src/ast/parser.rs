@@ -5,7 +5,7 @@ use crate::ast::expr::Expr;
 use crate::error::{LoxError, LoxErrorKind};
 use crate::token::{Token, TokenType};
 
-use super::Statement;
+use super::{Statement};
 
 struct Parser<'a> {
     token_iterator: Peekable<std::slice::Iter<'a, Token>>,
@@ -15,10 +15,21 @@ impl Parser<'_> {
     fn parse(&mut self) -> Result<Vec<Statement>, Vec<LoxError>> {
         let mut statements: Vec<Statement> = Vec::new();
         let mut errors: Vec<LoxError> = Vec::new();
-        while let Some(token) = self.token_iterator.next() {
-
+        while let Some(token) = self.token_iterator.peek() {
+            let statement = self.declaration();
+            match statement {
+                Ok(statement) => statements.push(statement),
+                Err(error) => {
+                    errors.push(error);
+                    self.synchronize();
+                },
+            };
         }
-        Ok(statements)
+        if errors.is_empty() {
+            Ok(statements)
+        } else {
+            Err(errors)
+        }
     }
 
     fn declaration(&mut self) -> Result<Statement, LoxError> {
@@ -37,7 +48,10 @@ impl Parser<'_> {
         let name = match self.token_iterator.peek() {
             Some(token) => {
                 match &token.type_ {
-                    TokenType::Identifier(name) => name,
+                    TokenType::Identifier(name) => {
+                        self.token_iterator.next();
+                        name
+                    },
                     _ => return Err(LoxError {
                         kind: LoxErrorKind::Syntax,
                         message: "Expected variable name".to_owned(),
@@ -52,6 +66,7 @@ impl Parser<'_> {
                 line: last_token.line,
             })
         };
+        println!("Consumed variable {}, peek = {:?}", name, self.token_iterator.peek());
         let initializer = match self.token_iterator.peek() {
             Some(token) if token.type_ == TokenType::Equal => {
                 self.token_iterator.next().unwrap();
@@ -72,13 +87,13 @@ impl Parser<'_> {
 
     fn print_statement(&mut self) -> Result<Statement, LoxError> {
         // consume 'print' keyword
-        let last_token = self.token_iterator.next().unwrap();
         let expr = self.expression()?;
         self.consume_semicolon("after value")?;
         Ok(Statement::Print { expr, })
     }
 
     fn expression_statement(&mut self) -> Result<Statement, LoxError> {
+        println!("expression_statement: {:?}", self.token_iterator.peek());
         let expr = self.expression()?;
         self.consume_semicolon("after expression")?;
         Ok(Statement::Expression { expr, })
@@ -140,8 +155,14 @@ impl Parser<'_> {
     }
 
     fn primary(&mut self) -> Result<Expr, LoxError> {
-        match self.token_iterator.peek() {
-            None => unreachable!(),
+        print!("primary: {:?}", self.token_iterator.peek());
+        let result = match self.token_iterator.peek() {
+            None => Err(LoxError {
+                kind: LoxErrorKind::Syntax,
+                // TODO: fix position
+                line: 0,
+                message: "Expected expression.".to_owned(),
+            }),
             Some(t) => match &t.type_ {
                 TokenType::False
                 | TokenType::True
@@ -173,7 +194,9 @@ impl Parser<'_> {
                     message: "Expected expression.".to_owned(),
                 }),
             },
-        }
+        };
+        println!("primary result: {:?}", result);
+        result
     }
 
     fn consume_if_matches(&mut self, token_types: &[TokenType]) -> Option<Token> {
@@ -228,23 +251,16 @@ impl Parser<'_> {
     }
 }
 
-pub fn parse(tokens: Vec<Token>) -> Result<Expr, LoxError> {
+pub fn parse(tokens: Vec<Token>) -> Result<Vec<Statement>, Vec<LoxError>> {
     let mut parser = Parser {
         token_iterator: tokens.iter().peekable(),
     };
-    parser.expression()
+    parser.parse()
 }
 
 #[cfg(test)]
 mod parser_tests {
     use super::*;
-
-    fn eof(line: u32) -> Token {
-        Token {
-            type_: TokenType::Eof,
-            line,
-        }
-    }
 
     macro_rules! parametrized_tests {
         ($($name:ident: $value:expr,)*) => {
@@ -261,34 +277,36 @@ mod parser_tests {
 
     parametrized_tests!(
         empty_string: (
-            vec![eof(1)],
-            Err(LoxError {
-                kind: LoxErrorKind::Syntax,
-                line: 1,
-                message: "Expected expression.".to_owned()
-            })
+            vec![],
+            Ok(vec![]),
         ),
         number_literal: (
             vec![
                 Token::new_number(123.1, 1),
-                eof(2),
+                Token::new(TokenType::Semicolon, 1),
             ],
-            Ok(Expr::Literal(
-                Token::new_number(123.1, 1),
-            ))
+            Ok(vec![
+                Statement::Expression {
+                    expr: Expr::number_literal(123.1, 1),
+                }
+            ])
         ),
         number_sum: (
             vec![
                 Token::new_number(123.1, 1),
                 Token::new(TokenType::Plus, 1),
                 Token::new_number(456.2, 1),
-                eof(2),
+                Token::new(TokenType::Semicolon, 1),
             ],
-            Ok(Expr::Binary(
-                Box::new(Expr::Literal(Token::new_number(123.1, 1))),
-                Token::new(TokenType::Plus, 1),
-                Box::new(Expr::Literal(Token::new_number(456.2, 1))),
-            )),
+            Ok(vec![
+                Statement::Expression {
+                    expr: Expr::Binary(
+                        Expr::number_literal(123.1, 1).boxed(),
+                        Token::new(TokenType::Plus, 1),
+                        Expr::number_literal(456.2, 1).boxed(),
+                    ),
+                }
+            ]),
         ),
         binary_priorities: (
             vec![
@@ -297,30 +315,35 @@ mod parser_tests {
                 Token::new_number(2.0, 1),
                 Token::new(TokenType::Star, 1),
                 Token::new_number(3.0, 1),
-                eof(2),
+                Token::new(TokenType::Semicolon, 1),
             ],
-            Ok(Expr::Binary(
-                Box::new(Expr::Literal(Token::new_number(1.0, 1))),
-                Token::new(TokenType::Plus, 1),
-                Box::new(Expr::Binary(
-                    Box::new(Expr::Literal(Token::new_number(2.0, 1))),
-                    Token::new(TokenType::Star, 1),
-                    Box::new(Expr::Literal(Token::new_number(3.0, 1))),
-                )),
-            )),
-
+            Ok(vec![
+                Statement::Expression {
+                    expr: Expr::Binary(
+                        Expr::number_literal(1.0, 1).boxed(),
+                        Token::new(TokenType::Plus, 1),
+                        Expr::Binary(
+                            Expr::number_literal(2.0, 1).boxed(),
+                            Token::new(TokenType::Star, 1),
+                            Expr::number_literal(3.0, 1).boxed(),
+                        ).boxed(),
+                    ),
+                }
+            ]),
         ),
         error_sum_without_second_operand: (
             vec![
                 Token::new_number(123.1, 1),
                 Token::new(TokenType::Plus, 1),
-                eof(2),
+                Token::new(TokenType::Semicolon, 1),
             ],
-            Err(LoxError {
-                kind: LoxErrorKind::Syntax,
-                line: 2,
-                message: "Expected expression.".to_owned()
-            })
+            Err(vec![
+                LoxError {
+                    kind: LoxErrorKind::Syntax,
+                    line: 1,
+                    message: "Expected expression.".to_owned()
+                },
+            ]),
         ),
         grouping_with_binary_inside: (
             vec![
@@ -329,15 +352,19 @@ mod parser_tests {
                 Token::new(TokenType::Plus, 1),
                 Token::new_number(456.2, 1),
                 Token::new(TokenType::RightParen, 1),
-                eof(2),
+                Token::new(TokenType::Semicolon, 1),
             ],
-            Ok(Expr::Grouping(
-                Box::new(Expr::Binary(
-                    Box::new(Expr::Literal(Token::new_number(123.1, 1))),
-                    Token::new(TokenType::Plus, 1),
-                    Box::new(Expr::Literal(Token::new_number(456.2, 1))),
-                )),
-            )),
+            Ok(vec![
+                Statement::Expression {
+                    expr: Expr::Grouping(
+                        Expr::Binary(
+                            Expr::number_literal(123.1, 1).boxed(),
+                            Token::new(TokenType::Plus, 1),
+                            Expr::number_literal(456.2, 1).boxed(),
+                        ).boxed(),
+                    ),
+                },
+            ]),
         ),
         grouping_with_unary_minus: (
             vec![
@@ -345,14 +372,18 @@ mod parser_tests {
                 Token::new(TokenType::Minus, 1),
                 Token::new_number(456.2, 1),
                 Token::new(TokenType::RightParen, 1),
-                eof(2),
+                Token::new(TokenType::Semicolon, 1),
             ],
-            Ok(Expr::Grouping(
-                Box::new(Expr::Unary(
-                    Token::new(TokenType::Minus, 1),
-                    Box::new(Expr::Literal(Token::new_number(456.2, 1))),
-                )),
-            )),
+            Ok(vec![
+                Statement::Expression {
+                    expr: Expr::Grouping(
+                        Expr::Unary(
+                            Token::new(TokenType::Minus, 1),
+                            Expr::number_literal(456.2, 1).boxed(),
+                        ).boxed(),
+                    ),
+                },
+            ]),
         ),
         error_grouping_no_right_paren: (
             vec![
@@ -360,28 +391,85 @@ mod parser_tests {
                 Token::new_number(123.1, 1),
                 Token::new(TokenType::Plus, 1),
                 Token::new_number(456.2, 1),
-                eof(2),
+                Token::new(TokenType::Semicolon, 1),
             ],
-            Err(
+            Err(vec![
                 LoxError {
                     kind: LoxErrorKind::Syntax,
                     message: "Expected ')' after expression".to_owned(),
                     line: 1,
                 },
-            ),
+            ]),
         ),
         error_unary_no_operand: (
             vec![
                 Token::new(TokenType::Minus, 1),
-                eof(2),
+                Token::new(TokenType::Semicolon, 1),
             ],
-            Err(
+            Err(vec![
                 LoxError {
                     kind: LoxErrorKind::Syntax,
                     message: "Expected expression.".to_owned(),
-                    line: 2,
+                    line: 1,
                 },
-            )
+            ]),
+        ),
+        var_declaration: (
+            vec![
+                Token::new(TokenType::Var, 1),
+                Token::new(TokenType::Identifier("test".to_owned()), 1),
+                Token::new(TokenType::Semicolon, 1),
+            ],
+            Ok(vec![
+                Statement::Var {
+                    name: "test".to_owned(),
+                    initializer: None,
+                },
+            ]),
+        ),
+        var_declaration_with_initializer: (
+            vec![
+                Token::new(TokenType::Var, 1),
+                Token::new(TokenType::Identifier("test".to_owned()), 1),
+                Token::new(TokenType::Equal, 1),
+                Token::new_number(123.1, 1),
+                Token::new(TokenType::Semicolon, 1),
+            ],
+            Ok(vec![
+                Statement::Var {
+                    name: "test".to_owned(),
+                    initializer: Some(Expr::number_literal(123.1, 1)),
+                },
+            ]),
+        ),
+        var_declaration_with_initializer_expression: (
+            vec![
+                Token::new(TokenType::Var, 1),
+                Token::new(TokenType::Identifier("test".to_owned()), 1),
+                Token::new(TokenType::Equal, 1),
+                Token::new_number(1.0, 1),
+                Token::new(TokenType::Plus, 1),
+                Token::new_number(2.0, 1),
+                Token::new(TokenType::Star, 1),
+                Token::new_number(3.0, 1),
+                Token::new(TokenType::Semicolon, 1),
+            ],
+            Ok(vec![
+                Statement::Var {
+                    name: "test".to_owned(),
+                    initializer: Some(
+                        Expr::Binary(
+                            Expr::number_literal(1.0, 1).boxed(),
+                            Token::new(TokenType::Plus, 1),
+                            Expr::Binary(
+                                Expr::number_literal(2.0, 1).boxed(),
+                                Token::new(TokenType::Star, 1),
+                                Expr::number_literal(3.0, 1).boxed(),
+                            ).boxed(),
+                        )
+                    ),
+                },
+            ]),
         ),
     );
 }

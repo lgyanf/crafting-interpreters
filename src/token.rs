@@ -44,8 +44,6 @@ pub enum TokenType {
     True,
     Var,
     While,
-
-    Eof,
 }
 
 impl PartialEq for TokenType {
@@ -100,7 +98,6 @@ impl Display for TokenType {
             TokenType::True => "true".to_owned(),
             TokenType::Var => "var".to_owned(),
             TokenType::While => "while".to_owned(),
-            TokenType::Eof => "EOF".to_owned(),
         };
         write!(f, "{}", ch)
     }
