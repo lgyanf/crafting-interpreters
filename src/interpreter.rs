@@ -35,14 +35,15 @@ impl Display for Value {
 
 struct InterpreterState {}
 
-#[derive(Debug)]
-struct Interpreter {
-    had_error: bool,
+struct Interpreter <'a> {
+    stdout: &'a dyn std::io::Write,
 }
 
-impl Interpreter {
-    fn new() -> Self {
-        Interpreter { had_error: false }
+impl<'a> Interpreter <'a> {
+    fn new(stdout: &'a dyn std::io::Write) -> Self {
+        Interpreter {
+            stdout,
+        }
     }
 
     fn unary_op(&mut self, op: &Token, value: &Expr) -> Result<Value, LoxError> {
@@ -121,7 +122,7 @@ impl Interpreter {
     }
 }
 
-impl Visitor for Interpreter {
+impl Visitor for Interpreter<'_> {
     type Result = Result<Value, LoxError>;
 
     fn visit_expr(&mut self, expr: &crate::ast::Expr) -> Self::Result {
@@ -141,7 +142,7 @@ impl Visitor for Interpreter {
     }
 }
 
-impl StatementVisitor for Interpreter {
+impl StatementVisitor for Interpreter<'_> {
     type Result = Result<(), LoxError>;
 
     fn visit_statement(&mut self, statement: &ast::Statement) -> Self::Result {
@@ -162,20 +163,25 @@ impl StatementVisitor for Interpreter {
     }
 }
 
-fn run(program: &str) -> Result<(), Vec<LoxError>> {
+fn run_with_interpreter(program: &str, interpreter: &mut Interpreter) -> Result<(), Vec<LoxError>> {
     let scanner_result = scanner::scan(program);
     let tokens = match scanner_result {
         Ok(tokens) => tokens,
         Err(error) => return Err(vec![error]),
     };
     let statements = ast::parse(tokens)?;
-    let mut interpreter = Interpreter::new();
     for statement in statements {
         if let Err(error) = interpreter.execute_statement(&statement) {
             return Err(vec![error]);
         };
     }
     Ok(())
+}
+
+fn run(program: &str) -> Result<(), Vec<LoxError>> {
+    let mut stdout = std::io::stdout();
+    let mut interpreter = Interpreter::new(&mut stdout);
+    run_with_interpreter(program, &mut interpreter)
 }
 
 pub fn run_file(path: &str) -> Result<(), Box<dyn Error>> {
@@ -211,29 +217,37 @@ mod run_tests {
         $(
             #[test]
             fn $name() {
-                let (input, expected) = $value;
-                assert_eq!(expected, run(input));
+                let mut stdout = Vec::new();
+                let mut interpreter = Interpreter::new(&mut stdout);
+                let (input, expected, expected_stdout) = $value;
+                assert_eq!(expected, run_with_interpreter(input, &mut interpreter));
+                assert_eq!(expected_stdout, stdout);
             }
         )*
         }
     }
 
+    // TODO: use .visit_expr in these tests to test values
     parametrized_tests!(
         empty_string: (
             "",
-            Ok(())
+            Ok(()),
+            b"".to_vec(),
         ),
         int_sum: (
             "1+2;",
-            Ok(())
+            Ok(()),
+            b"".to_vec(),
         ),
         arithmetic_operator_priority: (
             "2 + 2 * 2;",
             Ok(()),
+            b"".to_vec(),
         ),
         grouping_priority: (
             "2 * (2 + 2);",
             Ok(()),
+            b"".to_vec(),
         ),
         number_plus_string_produces_error: (
             "\"abc\" + 123;",
@@ -244,10 +258,12 @@ mod run_tests {
                     message: "Unsupported operand types for binary operator + (String(abc), Number(123))".to_owned(),
                 },
             ]),
+            b"".to_vec(),
         ),
         string_sum: (
             "\"abc\" + \"def\";",
             Ok(()),
+            b"".to_vec(),
         ),
     );
 }
