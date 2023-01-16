@@ -148,12 +148,15 @@ impl StatementVisitor for Interpreter {
         match statement {
             ast::Statement::Expression { expr } => {
                 self.visit_expr(expr)?;
-            },
+            }
             ast::Statement::Print { expr } => {
                 let value = self.visit_expr(expr)?;
                 println!("{}", value);
-            },
-            ast::Statement::Var { name: _, initializer: _ } => todo!(),
+            }
+            ast::Statement::Var {
+                name: _,
+                initializer: _,
+            } => todo!(),
         };
         Ok(())
     }
@@ -163,7 +166,7 @@ fn run(program: &str) -> Result<(), Vec<LoxError>> {
     let scanner_result = scanner::scan(program);
     let tokens = match scanner_result {
         Ok(tokens) => tokens,
-        Err(error) => return Err(vec![error, ]),
+        Err(error) => return Err(vec![error]),
     };
     let statements = ast::parse(tokens)?;
     let mut interpreter = Interpreter::new();
@@ -180,7 +183,7 @@ pub fn run_file(path: &str) -> Result<(), Box<dyn Error>> {
     match run(&program) {
         Ok(()) => Ok(()),
         // TODO: return more than 1 error
-        Err(errors) => Err(Box::new(errors[0].clone()))
+        Err(errors) => Err(Box::new(errors[0].clone())),
     }
 }
 
