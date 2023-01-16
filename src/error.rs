@@ -1,6 +1,6 @@
 use std::{error::Error, fmt::Display};
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum LoxErrorKind {
     Lexical,
     Syntax,
@@ -8,7 +8,7 @@ pub enum LoxErrorKind {
     Type,
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct LoxError {
     pub kind: LoxErrorKind,
     pub line: u32,

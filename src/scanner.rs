@@ -34,7 +34,7 @@ fn char_to_f64(c: char) -> f64 {
 
 fn is_allowed_after_number(c: char) -> bool {
     match c {
-        '/' | '*' | '+' | '-' | ')' => true,
+        '/' | '*' | '+' | '-' | ')' | ';' => true,
         _ if c.is_whitespace() => true,
         _ => false,
     }
@@ -389,6 +389,15 @@ mod tests {
                 Token { type_: TokenType::Plus, line: 1 },
                 Token { type_: TokenType::Number(2.0), line: 1 },
             ]),
+        ),
+        sum_statement: (
+            "1+2;",
+            Ok(vec![
+                Token::new_number(1.0, 1),
+                Token::new(TokenType::Plus, 1),
+                Token::new_number(2.0, 1),
+                Token::new(TokenType::Semicolon, 1),
+            ])
         ),
     }
 }

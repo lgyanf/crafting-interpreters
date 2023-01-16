@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::iter::Peekable;
 
 use crate::ast::expr::Expr;
@@ -15,7 +14,7 @@ impl Parser<'_> {
     fn parse(&mut self) -> Result<Vec<Statement>, Vec<LoxError>> {
         let mut statements: Vec<Statement> = Vec::new();
         let mut errors: Vec<LoxError> = Vec::new();
-        while let Some(token) = self.token_iterator.peek() {
+        while let Some(_token) = self.token_iterator.peek() {
             let statement = self.declaration();
             match statement {
                 Ok(statement) => statements.push(statement),
@@ -66,7 +65,6 @@ impl Parser<'_> {
                 line: last_token.line,
             })
         };
-        println!("Consumed variable {}, peek = {:?}", name, self.token_iterator.peek());
         let initializer = match self.token_iterator.peek() {
             Some(token) if token.type_ == TokenType::Equal => {
                 self.token_iterator.next().unwrap();
@@ -93,7 +91,6 @@ impl Parser<'_> {
     }
 
     fn expression_statement(&mut self) -> Result<Statement, LoxError> {
-        println!("expression_statement: {:?}", self.token_iterator.peek());
         let expr = self.expression()?;
         self.consume_semicolon("after expression")?;
         Ok(Statement::Expression { expr, })
@@ -155,7 +152,6 @@ impl Parser<'_> {
     }
 
     fn primary(&mut self) -> Result<Expr, LoxError> {
-        print!("primary: {:?}", self.token_iterator.peek());
         let result = match self.token_iterator.peek() {
             None => Err(LoxError {
                 kind: LoxErrorKind::Syntax,
@@ -195,7 +191,6 @@ impl Parser<'_> {
                 }),
             },
         };
-        println!("primary result: {:?}", result);
         result
     }
 

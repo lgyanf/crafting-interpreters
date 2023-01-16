@@ -6,6 +6,7 @@ use std::io::BufRead;
 use std::io::Write;
 
 use crate::ast;
+use crate::ast::visitor::StatementVisitor;
 use crate::ast::{Expr, Visitor};
 use crate::error::LoxError;
 use crate::error::LoxErrorKind;
@@ -110,6 +111,14 @@ impl Interpreter {
             }),
         }
     }
+
+    pub fn interpret_expression(&mut self, expr: &crate::ast::Expr) -> Result<Value, LoxError> {
+        self.visit_expr(expr)
+    }
+
+    pub fn execute_statement(&mut self, statement: &crate::ast::Statement) -> Result<(), LoxError> {
+        self.visit_statement(statement)
+    }
 }
 
 impl Visitor for Interpreter {
@@ -132,26 +141,47 @@ impl Visitor for Interpreter {
     }
 }
 
-fn run_internal(_program: &str) -> Result<Value, LoxError> {
-    // let tokens = scanner::scan(program)?;
-    // let expr = ast::parse(tokens)?;
-    // let mut interpreter = Interpreter::new();
-    // let result = interpreter.visit_expr(&expr)?;
-    // Ok(result)
-    todo!()
+impl StatementVisitor for Interpreter {
+    type Result = Result<(), LoxError>;
+
+    fn visit_statement(&mut self, statement: &ast::Statement) -> Self::Result {
+        match statement {
+            ast::Statement::Expression { expr } => {
+                self.visit_expr(expr)?;
+            },
+            ast::Statement::Print { expr } => {
+                let value = self.visit_expr(expr)?;
+                println!("{}", value);
+            },
+            ast::Statement::Var { name: _, initializer: _ } => todo!(),
+        };
+        Ok(())
+    }
 }
 
-fn run(_program: &str) -> Result<(), LoxError> {
-    // let program_result = run_internal(program)?;
-    // println!("{}", program_result);
-    // Ok(())
-    todo!()
+fn run(program: &str) -> Result<(), Vec<LoxError>> {
+    let scanner_result = scanner::scan(program);
+    let tokens = match scanner_result {
+        Ok(tokens) => tokens,
+        Err(error) => return Err(vec![error, ]),
+    };
+    let statements = ast::parse(tokens)?;
+    let mut interpreter = Interpreter::new();
+    for statement in statements {
+        if let Err(error) = interpreter.execute_statement(&statement) {
+            return Err(vec![error]);
+        };
+    }
+    Ok(())
 }
 
 pub fn run_file(path: &str) -> Result<(), Box<dyn Error>> {
     let program = fs::read_to_string(path)?;
-    run(&program)?;
-    Ok(())
+    match run(&program) {
+        Ok(()) => Ok(()),
+        // TODO: return more than 1 error
+        Err(errors) => Err(Box::new(errors[0].clone()))
+    }
 }
 
 pub fn run_prompt() -> Result<(), Box<dyn Error>> {
@@ -162,7 +192,6 @@ pub fn run_prompt() -> Result<(), Box<dyn Error>> {
         io::stdout().flush()?;
         let mut buffer = String::new();
         let r = handle.read_line(&mut buffer)?;
-        println!("buffer: {}", buffer);
         if r == 0 {
             return Ok(());
         }
@@ -180,7 +209,7 @@ mod run_tests {
             #[test]
             fn $name() {
                 let (input, expected) = $value;
-                assert_eq!(expected, run_internal(input));
+                assert_eq!(expected, run(input));
             }
         )*
         }
@@ -189,35 +218,33 @@ mod run_tests {
     parametrized_tests!(
         empty_string: (
             "",
-            Err(LoxError {
-                kind: LoxErrorKind::Syntax,
-                line: 1,
-                message: "Expected expression.".to_owned(),
-            })
+            Ok(())
         ),
         int_sum: (
-            "1+2",
-            Ok(Value::Number(3.0))
+            "1+2;",
+            Ok(())
         ),
         arithmetic_operator_priority: (
-            "2 + 2 * 2",
-            Ok(Value::Number(6.0)),
+            "2 + 2 * 2;",
+            Ok(()),
         ),
         grouping_priority: (
-            "2 * (2 + 2)",
-            Ok(Value::Number(8.0)),
+            "2 * (2 + 2);",
+            Ok(()),
         ),
         number_plus_string_produces_error: (
-            "\"abc\" + 123",
-            Err(LoxError {
-                kind: LoxErrorKind::Runtime,
-                line: 1,
-                message: "Unsupported operand types for binary operator + (String(abc), Number(123))".to_owned(),
-            }),
+            "\"abc\" + 123;",
+            Err(vec![
+                LoxError {
+                    kind: LoxErrorKind::Runtime,
+                    line: 1,
+                    message: "Unsupported operand types for binary operator + (String(abc), Number(123))".to_owned(),
+                },
+            ]),
         ),
         string_sum: (
-            "\"abc\" + \"def\"",
-            Ok(Value::String("abcdef".to_owned())),
+            "\"abc\" + \"def\";",
+            Ok(()),
         ),
     );
 }
