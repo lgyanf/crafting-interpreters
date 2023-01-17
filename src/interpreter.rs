@@ -22,13 +22,24 @@ enum Value {
     String(String),
 }
 
+impl Value {
+    fn to_debug_string(&self) -> String {
+        match self {
+            Value::Nil => "Nil".to_owned(),
+            Value::Boolean(b) => format!("Boolean({})", b),
+            Value::Number(n) => format!("Number({})", n),
+            Value::String(s) => format!("String({})", s),
+        }
+    }
+}
+
 impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Nil => write!(f, "Nil"),
-            Value::Boolean(b) => write!(f, "Boolean({})", b),
-            Value::Number(n) => write!(f, "Number({})", n),
-            Value::String(s) => write!(f, "String({})", s),
+            Value::Boolean(b) => write!(f, "{}", b),
+            Value::Number(n) => write!(f, "{}", n),
+            Value::String(s) => write!(f, "{}", s),
         }
     }
 }
@@ -36,11 +47,11 @@ impl Display for Value {
 struct InterpreterState {}
 
 struct Interpreter <'a> {
-    stdout: &'a dyn std::io::Write,
+    stdout: &'a mut dyn std::io::Write,
 }
 
 impl<'a> Interpreter <'a> {
-    fn new(stdout: &'a dyn std::io::Write) -> Self {
+    fn new(stdout: &'a mut dyn std::io::Write) -> Self {
         Interpreter {
             stdout,
         }
@@ -93,7 +104,7 @@ impl<'a> Interpreter <'a> {
                 line: op.line,
                 message: format!(
                     "Unsupported operand types for binary operator {} ({}, {})",
-                    op.type_, left_value, right_value
+                    op.type_, left_value.to_debug_string(), right_value.to_debug_string()
                 ),
             }),
         }
@@ -153,6 +164,7 @@ impl StatementVisitor for Interpreter<'_> {
             ast::Statement::Print { expr } => {
                 let value = self.visit_expr(expr)?;
                 println!("{}", value);
+                writeln!(self.stdout, "{}", value);
             }
             ast::Statement::Var {
                 name: _,
@@ -261,9 +273,9 @@ mod run_tests {
             b"".to_vec(),
         ),
         string_sum: (
-            "\"abc\" + \"def\";",
+            "print \"abc\" + \"def\";",
             Ok(()),
-            b"".to_vec(),
+            b"abcdef\n".to_vec(),
         ),
     );
 }

@@ -88,6 +88,7 @@ impl Parser<'_> {
 
     fn print_statement(&mut self) -> Result<Statement, LoxError> {
         // consume 'print' keyword
+        self.token_iterator.next();
         let expr = self.expression()?;
         self.consume_semicolon("after value")?;
         Ok(Statement::Print { expr })
@@ -479,5 +480,23 @@ mod parser_tests {
                     },],
                 ),
             ),
+        print_statement_with_string_sum: (
+            vec![
+                Token::new(TokenType::Print, 1),
+                Token::new_string("abc", 1),
+                Token::new(TokenType::Plus, 1),
+                Token::new_string("def", 1),
+                Token::new(TokenType::Semicolon, 1),
+            ],
+            Ok(
+                vec![Statement::Print {
+                    expr: Expr::Binary(
+                        Expr::string_literal("abc", 1).boxed(),
+                        Token::new(TokenType::Plus, 1),
+                        Expr::string_literal("def", 1).boxed(),
+                    ),
+                }],
+            )
+        ),
     );
 }

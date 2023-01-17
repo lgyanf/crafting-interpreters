@@ -17,6 +17,13 @@ impl Expr {
         })
     }
 
+    pub fn string_literal(value: &str, line: u32) -> Self {
+        Self::Literal(Token {
+            type_: TokenType::String(value.to_owned()),
+            line,
+        })
+    }
+
     pub fn boxed(&self) -> Box<Self> {
         Box::new(self.clone())
     }

@@ -117,4 +117,8 @@ impl Token {
     pub fn new_number(n: f64, line: u32) -> Token {
         Token::new(TokenType::Number(n), line)
     }
+
+    pub fn new_string(value: &str, line: u32) -> Token {
+        Token::new(TokenType::String(value.to_owned()), line)
+    }
 }
