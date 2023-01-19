@@ -6,7 +6,7 @@ pub enum Expr {
     Unary(Token, Box<Expr>),
     Binary(Box<Expr>, Token, Box<Expr>),
     Grouping(Box<Expr>),
-    Variable { name: String },
+    Variable { name: String, line: u32 },
 }
 
 impl Expr {

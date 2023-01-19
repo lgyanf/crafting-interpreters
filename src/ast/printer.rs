@@ -18,7 +18,7 @@ impl Visitor for AstPrinter {
                 self.visit_expr(right)
             ),
             Expr::Grouping(e) => format!("(group {})", self.visit_expr(e)),
-            Expr::Variable { name } => name.clone(),
+            Expr::Variable { name , line: _} => name.clone(),
         }
     }
 }

@@ -90,13 +90,13 @@ impl Parser<'_> {
         // consume 'print' keyword
         self.token_iterator.next();
         let expr = self.expression()?;
-        self.consume_semicolon("after value")?;
+        self.consume_semicolon("value")?;
         Ok(Statement::Print { expr })
     }
 
     fn expression_statement(&mut self) -> Result<Statement, LoxError> {
         let expr = self.expression()?;
-        self.consume_semicolon("after expression")?;
+        self.consume_semicolon("expression")?;
         Ok(Statement::Expression { expr })
     }
 
@@ -171,7 +171,14 @@ impl Parser<'_> {
                 | TokenType::String(_) => Ok(Expr::Literal(
                     (*self.token_iterator.next().unwrap()).clone(),
                 )),
-                TokenType::Identifier(name) => Ok(Expr::Variable { name: name.clone() }),
+                TokenType::Identifier(name) => {
+                    let line = t.line;
+                    self.token_iterator.next();
+                    Ok(Expr::Variable {
+                        name: name.clone(),
+                        line,
+                    })
+                },
                 TokenType::LeftParen => {
                     let line = t.line;
                     self.token_iterator.next().unwrap();
@@ -213,6 +220,9 @@ impl Parser<'_> {
     }
 
     fn consume_semicolon(&mut self, error_message_suffix: &str) -> Result<(), LoxError> {
+        let next_token_type = self.token_iterator.peek()
+            .map(|t| t.type_.to_string())
+            .unwrap_or_else( || "<EOF>".to_owned());
         match self.token_iterator.peek() {
             Some(token) if token.type_ == TokenType::Semicolon => {
                 self.token_iterator.next();
@@ -222,7 +232,8 @@ impl Parser<'_> {
                 kind: LoxErrorKind::Syntax,
                 // TODO: fix line position
                 line: 0,
-                message: format!("Expected ';' after {}", error_message_suffix),
+                message: format!("Expected ';' after {}, got {}",
+                    error_message_suffix, next_token_type),
             }),
         }
     }

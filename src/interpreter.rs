@@ -14,7 +14,7 @@ use crate::scanner;
 use crate::token::Token;
 use crate::token::TokenType;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 enum Value {
     Nil,
     Boolean(bool),
@@ -44,15 +44,35 @@ impl Display for Value {
     }
 }
 
-struct InterpreterState {}
+struct Environment {
+    map: std::collections::HashMap<String, Value>,
+}
+
+impl Environment {
+    fn new() -> Self {
+        Self {
+            map: std::collections::HashMap::new()
+        }
+    }
+
+    fn get(&self, name: &str) -> Option<&Value> {
+        self.map.get(name)
+    }
+
+    fn set(&mut self, name: String, value: Value) {
+        self.map.insert(name, value);
+    }
+}
 
 struct Interpreter <'a> {
+    environment: Environment,
     stdout: &'a mut dyn std::io::Write,
 }
 
 impl<'a> Interpreter <'a> {
     fn new(stdout: &'a mut dyn std::io::Write) -> Self {
         Interpreter {
+            environment: Environment::new(),
             stdout,
         }
     }
@@ -148,7 +168,15 @@ impl Visitor for Interpreter<'_> {
             Expr::Unary(op, token) => self.unary_op(op, token.as_ref()),
             Expr::Binary(l, op, r) => self.binary_op(l, op, r),
             Expr::Grouping(expr) => self.visit_expr(expr),
-            Expr::Variable { name: _ } => todo!(),
+            Expr::Variable { name, line, } => match self.environment.get(name) {
+                None => Err(LoxError {
+                    kind: LoxErrorKind::Runtime,
+                    message: format!("Name \"{}\" is not defined", name),
+                    line: *line,
+                }),
+                // TODO: can we avoid cloning here?
+                Some(value) => Ok((*value).clone()),
+            },
         }
     }
 }
@@ -167,9 +195,15 @@ impl StatementVisitor for Interpreter<'_> {
                 writeln!(self.stdout, "{}", value);
             }
             ast::Statement::Var {
-                name: _,
-                initializer: _,
-            } => todo!(),
+                name,
+                initializer,
+            } => {
+                let value = match initializer {
+                    None => Value::Nil,
+                    Some(expr) => self.interpret_expression(expr)?
+                };
+                self.environment.set(name.clone(), value);
+            },
         };
         Ok(())
     }
@@ -276,6 +310,24 @@ mod run_tests {
             "print \"abc\" + \"def\";",
             Ok(()),
             b"abcdef\n".to_vec(),
+        ),
+        var_declaration: (
+            "var a;
+            print a;",
+            Ok(()),
+            b"Nil\n".to_vec(),
+        ),
+        var_declaration_with_initializer: (
+            "var a = 1;
+            print a;",
+            Ok(()),
+            b"1\n".to_vec(),
+        ),
+        var_declaration_with_initializer_expression: (
+            "var a = 2 + 2 * 2;
+            print a;",
+            Ok(()),
+            b"6\n".to_vec(),
         ),
     );
 }
