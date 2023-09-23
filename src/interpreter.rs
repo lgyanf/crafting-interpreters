@@ -53,7 +53,7 @@ struct Environment {
 impl Environment {
     fn new() -> Self {
         Self {
-            map: std::collections::HashMap::new()
+            map: std::collections::HashMap::new(),
         }
     }
 
@@ -66,12 +66,12 @@ impl Environment {
     }
 }
 
-struct Interpreter <'a> {
+struct Interpreter<'a> {
     environment: Environment,
     stdout: &'a mut dyn std::io::Write,
 }
 
-impl<'a> Interpreter <'a> {
+impl<'a> Interpreter<'a> {
     fn new(stdout: &'a mut dyn std::io::Write) -> Self {
         Interpreter {
             environment: Environment::new(),
@@ -79,7 +79,12 @@ impl<'a> Interpreter <'a> {
         }
     }
 
-    fn unary_op(&mut self, op: &UnaryOp, value: &Expr, position: &PositionRange) -> Result<Value, LoxError> {
+    fn unary_op(
+        &mut self,
+        op: &UnaryOp,
+        value: &Expr,
+        position: &PositionRange,
+    ) -> Result<Value, LoxError> {
         match op {
             UnaryOp::Bang => {
                 let expr = self.visit_expr(value)?;
@@ -107,7 +112,13 @@ impl<'a> Interpreter <'a> {
         }
     }
 
-    fn binary_op(&mut self, left: &Expr, op: &BinaryOp, right: &Expr, position: &PositionRange) -> Result<Value, LoxError> {
+    fn binary_op(
+        &mut self,
+        left: &Expr,
+        op: &BinaryOp,
+        right: &Expr,
+        position: &PositionRange,
+    ) -> Result<Value, LoxError> {
         let left_value = self.visit_expr(left)?;
         let right_value = self.visit_expr(right)?;
         match (&left_value, &op, &right_value) {
@@ -119,7 +130,7 @@ impl<'a> Interpreter <'a> {
                 let mut result = l.clone();
                 result.push_str(r);
                 Ok(Value::String(result))
-            },
+            }
             (_, BinaryOp::EqualEqual, _) => Ok(Value::Boolean(left_value == right_value)),
             (_, BinaryOp::BangEqual, _) => Ok(Value::Boolean(left_value != right_value)),
             _ => Err(LoxError {
@@ -127,13 +138,20 @@ impl<'a> Interpreter <'a> {
                 position: position.clone(),
                 message: format!(
                     "Unsupported operand types for binary operator {} ({}, {})",
-                    op, left_value.to_debug_string(), right_value.to_debug_string()
+                    op,
+                    left_value.to_debug_string(),
+                    right_value.to_debug_string()
                 ),
             }),
         }
     }
 
-    fn binary_arithmentic_op(left: f64, op: &BinaryOp, right: f64, _position: &PositionRange) -> Value {
+    fn binary_arithmentic_op(
+        left: f64,
+        op: &BinaryOp,
+        right: f64,
+        _position: &PositionRange,
+    ) -> Value {
         match op {
             BinaryOp::Minus => Value::Number(left - right),
             BinaryOp::Plus => Value::Number(left + right),
@@ -195,16 +213,13 @@ impl StatementVisitor for Interpreter<'_> {
                 println!("{}", value);
                 writeln!(self.stdout, "{}", value);
             }
-            ast::Statement::Var {
-                name,
-                initializer,
-            } => {
+            ast::Statement::Var { name, initializer } => {
                 let value = match initializer {
                     None => Value::Nil,
-                    Some(expr) => self.interpret_expression(expr)?
+                    Some(expr) => self.interpret_expression(expr)?,
                 };
                 self.environment.set(name.clone(), value);
-            },
+            }
         };
         Ok(())
     }

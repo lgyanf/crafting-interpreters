@@ -1,11 +1,11 @@
-
 mod scanner_iterator;
 
-use std::{vec::Vec};
+use std::vec::Vec;
 
 use crate::{
     error::{LoxError, LoxErrorKind},
-    token::{Token, TokenType}, position::{PositionRange, Position},
+    position::{Position, PositionRange},
+    token::{Token, TokenType},
 };
 
 use self::scanner_iterator::ScannerIterator;
@@ -223,7 +223,7 @@ pub fn scan(source: &str) -> Result<Vec<Token>, LoxError> {
                                 kind: LoxErrorKind::Lexical,
                                 position: PositionRange {
                                     start: token_start.clone().unwrap(),
-                                    end: it.current_position()
+                                    end: it.current_position(),
                                 },
                                 message: "Unterminated string".to_owned(),
                             });

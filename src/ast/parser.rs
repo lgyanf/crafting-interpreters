@@ -1,11 +1,11 @@
 use crate::ast::expr::Expr;
 use crate::error::{LoxError, LoxErrorKind};
-use crate::position::{ Position, PositionRange };
+use crate::position::{Position, PositionRange};
 use crate::token::{Token, TokenType};
 
-use super::Statement;
-use super::expr::{ExprType, UnaryOp, BinaryOp};
+use super::expr::{BinaryOp, ExprType, UnaryOp};
 use super::token_iterator::TokenIterator;
+use super::Statement;
 
 struct Parser<'a> {
     token_iterator: TokenIterator<'a>,
@@ -55,11 +55,14 @@ impl Parser<'_> {
                         return Err(LoxError {
                             kind: LoxErrorKind::Syntax,
                             message: "Expected variable name".to_owned(),
-                            position: PositionRange::from_bounds(&var_keyword.position, &token.position),
+                            position: PositionRange::from_bounds(
+                                &var_keyword.position,
+                                &token.position,
+                            ),
                         });
                     }
                 }
-            },
+            }
             _ => {
                 return Err(LoxError {
                     kind: LoxErrorKind::Syntax,
@@ -114,11 +117,7 @@ impl Parser<'_> {
         {
             let right = self.comparison()?;
             left = Expr {
-                expr_type: ExprType::Binary(
-                    left.boxed(),
-                    BinaryOp::from(operator),
-                    right.boxed()
-                ),
+                expr_type: ExprType::Binary(left.boxed(), BinaryOp::from(operator), right.boxed()),
                 position: PositionRange::from_bounds(&left.position, &right.position),
             };
         }
@@ -135,11 +134,7 @@ impl Parser<'_> {
         ]) {
             let right = self.term()?;
             left = Expr {
-                expr_type: ExprType::Binary(
-                    left.boxed(),
-                    BinaryOp::from(operator),
-                    right.boxed()
-                ),
+                expr_type: ExprType::Binary(left.boxed(), BinaryOp::from(operator), right.boxed()),
                 position: PositionRange::from_bounds(&left.position, &right.position),
             };
         }
@@ -151,11 +146,7 @@ impl Parser<'_> {
         while let Some(operator) = self.consume_if_matches(&[TokenType::Minus, TokenType::Plus]) {
             let right = self.factor()?;
             left = Expr {
-                expr_type: ExprType::Binary(
-                    left.boxed(),
-                    BinaryOp::from(operator),
-                    right.boxed()
-                ),
+                expr_type: ExprType::Binary(left.boxed(), BinaryOp::from(operator), right.boxed()),
                 position: PositionRange::from_bounds(&left.position, &right.position),
             };
         }
@@ -167,11 +158,7 @@ impl Parser<'_> {
         while let Some(operator) = self.consume_if_matches(&[TokenType::Star, TokenType::Slash]) {
             let right = self.unary()?;
             left = Expr {
-                expr_type: ExprType::Binary(
-                    left.boxed(),
-                    BinaryOp::from(operator),
-                    right.boxed()
-                ),
+                expr_type: ExprType::Binary(left.boxed(), BinaryOp::from(operator), right.boxed()),
                 position: PositionRange::from_bounds(&left.position, &right.position),
             };
         }
@@ -194,7 +181,8 @@ impl Parser<'_> {
         let result = match self.token_iterator.peek_clone() {
             None => Err(LoxError {
                 kind: LoxErrorKind::Syntax,
-                position: self.token_iterator
+                position: self
+                    .token_iterator
                     .last_position()
                     .unwrap_or_else(|| PositionRange {
                         start: Position { line: 0, column: 0 },
@@ -206,31 +194,31 @@ impl Parser<'_> {
                 TokenType::Nil => {
                     self.token_iterator.next();
                     Ok(Expr::nil(t.position.clone()))
-                },
+                }
                 TokenType::False => {
                     self.token_iterator.next();
                     Ok(Expr::boolean_literal(false, t.position.clone()))
-                },
+                }
                 TokenType::True => {
                     self.token_iterator.next();
                     Ok(Expr::boolean_literal(true, t.position.clone()))
-                },
+                }
                 TokenType::Number(n) => {
                     self.token_iterator.next();
                     Ok(Expr::number_literal(*n, t.position.clone()))
-                },
+                }
                 TokenType::String(s) => {
                     self.token_iterator.next();
                     Ok(Expr::string_literal(s, t.position.clone()))
-                },
+                }
                 TokenType::Identifier(name) => {
                     let position = t.position.clone();
                     self.token_iterator.next();
                     Ok(Expr {
-                        expr_type: ExprType::Variable { name: name.clone(), },
+                        expr_type: ExprType::Variable { name: name.clone() },
                         position,
                     })
-                },
+                }
                 TokenType::LeftParen => {
                     let left_paren = self.token_iterator.next().unwrap();
                     let expr = self.expression()?;
@@ -239,25 +227,30 @@ impl Parser<'_> {
                             let right_paren = self.token_iterator.next().unwrap();
                             Ok(Expr {
                                 expr_type: ExprType::Grouping(expr.boxed()),
-                                position: PositionRange::from_bounds(&left_paren.position, &right_paren.position)
+                                position: PositionRange::from_bounds(
+                                    &left_paren.position,
+                                    &right_paren.position,
+                                ),
                             })
                         }
                         _ => Err(LoxError {
                             kind: LoxErrorKind::Syntax,
-                            position: PositionRange::from_bounds(&left_paren.position, &self.token_iterator.last_position().unwrap()),
+                            position: PositionRange::from_bounds(
+                                &left_paren.position,
+                                &self.token_iterator.last_position().unwrap(),
+                            ),
                             message: "Expected ')' after expression".to_owned(),
                         }),
                     }
                 }
                 _ => Err(LoxError {
                     kind: LoxErrorKind::Syntax,
-                    position: self.token_iterator
-                        .last_position()
-                        .unwrap_or_else(|| PositionRange {
+                    position: self.token_iterator.last_position().unwrap_or_else(|| {
+                        PositionRange {
                             start: Position { line: 0, column: 0 },
                             end: Position { line: 0, column: 0 },
-                        },
-                    ),
+                        }
+                    }),
                     message: format!("Expected expression, got {}.", t.type_),
                 }),
             },
@@ -280,10 +273,16 @@ impl Parser<'_> {
         }
     }
 
-    fn consume_semicolon(&mut self, expression_start: &PositionRange, error_message_suffix: &str) -> Result<(), LoxError> {
-        let next_token_type = self.token_iterator.peek()
+    fn consume_semicolon(
+        &mut self,
+        expression_start: &PositionRange,
+        error_message_suffix: &str,
+    ) -> Result<(), LoxError> {
+        let next_token_type = self
+            .token_iterator
+            .peek()
             .map(|t| t.type_.to_string())
-            .unwrap_or_else( || "<EOF>".to_owned());
+            .unwrap_or_else(|| "<EOF>".to_owned());
         match self.token_iterator.peek() {
             Some(token) if token.type_ == TokenType::Semicolon => {
                 self.token_iterator.next();
@@ -291,9 +290,14 @@ impl Parser<'_> {
             }
             _ => Err(LoxError {
                 kind: LoxErrorKind::Syntax,
-                position: PositionRange::from_bounds(expression_start, &self.token_iterator.last_position().unwrap()),
-                message: format!("Expected ';' after {}, got {}",
-                    error_message_suffix, next_token_type),
+                position: PositionRange::from_bounds(
+                    expression_start,
+                    &self.token_iterator.last_position().unwrap(),
+                ),
+                message: format!(
+                    "Expected ';' after {}, got {}",
+                    error_message_suffix, next_token_type
+                ),
             }),
         }
     }

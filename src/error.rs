@@ -21,6 +21,10 @@ impl Error for LoxError {}
 
 impl Display for LoxError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}: {}\nline {}", self.kind, self.message, self.position.start.line)
+        write!(
+            f,
+            "{:?}: {}\nline {}",
+            self.kind, self.message, self.position.start.line
+        )
     }
 }

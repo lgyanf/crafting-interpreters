@@ -1,6 +1,6 @@
 use std::{iter::Peekable, str::Chars};
 
-use crate::position::{Line, Column, Position};
+use crate::position::{Column, Line, Position};
 
 pub struct ScannerIterator<'a> {
     it: Peekable<Chars<'a>>,
@@ -15,7 +15,7 @@ impl<'a> ScannerIterator<'a> {
             it: s.chars().into_iter().peekable(),
             current_line: 0,
             current_column: 0,
-            prev_char_is_line_break: false
+            prev_char_is_line_break: false,
         }
     }
 

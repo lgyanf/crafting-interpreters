@@ -1,7 +1,7 @@
 use float_cmp::approx_eq;
 use std::fmt::Display;
 
-use crate::position::{PositionRange};
+use crate::position::PositionRange;
 
 #[derive(Debug, Clone)]
 pub enum TokenType {
@@ -122,7 +122,7 @@ pub struct Token {
 
 impl Token {
     pub fn new(type_: TokenType, position: PositionRange) -> Token {
-        Token { type_, position, }
+        Token { type_, position }
     }
 
     pub fn new_number(n: f64, position: PositionRange) -> Token {

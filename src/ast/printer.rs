@@ -1,4 +1,7 @@
-use super::{expr::{Expr, ExprType}, visitor::Visitor};
+use super::{
+    expr::{Expr, ExprType},
+    visitor::Visitor,
+};
 
 pub struct AstPrinter {}
 

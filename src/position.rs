@@ -9,7 +9,10 @@ pub struct Position {
 
 impl Position {
     pub fn as_range(&self) -> PositionRange {
-        PositionRange { start: self.clone(), end: self.clone() }
+        PositionRange {
+            start: self.clone(),
+            end: self.clone(),
+        }
     }
 }
 

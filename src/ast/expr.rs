@@ -1,6 +1,9 @@
 use std::fmt::Display;
 
-use crate::{token::{Token, TokenType}, position::PositionRange};
+use crate::{
+    position::PositionRange,
+    token::{Token, TokenType},
+};
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum BinaryOp {
@@ -45,7 +48,10 @@ impl From<Token> for BinaryOp {
             TokenType::GreaterEqual => Self::GreaterEqual,
             TokenType::Less => Self::Less,
             TokenType::LessEqual => Self::LessEqual,
-            _ => unreachable!("Cannot create binary operator from {} at {:?}", t.type_, t.position),
+            _ => unreachable!(
+                "Cannot create binary operator from {} at {:?}",
+                t.type_, t.position
+            ),
         }
     }
 }
@@ -71,7 +77,10 @@ impl From<Token> for UnaryOp {
         match t.type_ {
             TokenType::Minus => Self::Minus,
             TokenType::Bang => Self::Bang,
-            _ => unreachable!("Cannot create unary operator from {} at {:?}", t.type_, t.position),
+            _ => unreachable!(
+                "Cannot create unary operator from {} at {:?}",
+                t.type_, t.position
+            ),
         }
     }
 }

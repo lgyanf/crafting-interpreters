@@ -8,8 +8,8 @@ use std::process;
 mod ast;
 mod error;
 mod interpreter;
-mod scanner;
 mod position;
+mod scanner;
 mod token;
 
 fn main() -> Result<(), Box<dyn Error>> {
