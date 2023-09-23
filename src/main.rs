@@ -9,6 +9,7 @@ mod ast;
 mod error;
 mod interpreter;
 mod scanner;
+mod position;
 mod token;
 
 fn main() -> Result<(), Box<dyn Error>> {

@@ -1,6 +1,8 @@
 use float_cmp::approx_eq;
 use std::fmt::Display;
 
+use crate::position::{PositionRange};
+
 #[derive(Debug, Clone)]
 pub enum TokenType {
     LeftParen,
@@ -64,7 +66,7 @@ impl Display for TokenType {
             TokenType::RightParen => ")".to_owned(),
             TokenType::LeftBrace => "{".to_owned(),
             TokenType::RightBrace => "}".to_owned(),
-            TokenType::Comma => ".to_owned(),".to_owned(),
+            TokenType::Comma => ",".to_owned(),
             TokenType::Dot => ".".to_owned(),
             TokenType::Minus => "-".to_owned(),
             TokenType::Plus => "+".to_owned(),
@@ -103,22 +105,31 @@ impl Display for TokenType {
     }
 }
 
+impl TokenType {
+    pub fn size(&self) -> usize {
+        match self {
+            Self::String(s) => s.len() + 2usize,
+            _ => self.to_string().len(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub type_: TokenType,
-    pub line: u32,
+    pub position: PositionRange,
 }
 
 impl Token {
-    pub fn new(type_: TokenType, line: u32) -> Token {
-        Token { type_, line }
+    pub fn new(type_: TokenType, position: PositionRange) -> Token {
+        Token { type_, position, }
     }
 
-    pub fn new_number(n: f64, line: u32) -> Token {
-        Token::new(TokenType::Number(n), line)
+    pub fn new_number(n: f64, position: PositionRange) -> Token {
+        Token::new(TokenType::Number(n), position)
     }
 
-    pub fn new_string(value: &str, line: u32) -> Token {
-        Token::new(TokenType::String(value.to_owned()), line)
+    pub fn new_string(value: &str, position: PositionRange) -> Token {
+        Token::new(TokenType::String(value.to_owned()), position)
     }
 }

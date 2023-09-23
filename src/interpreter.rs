@@ -6,13 +6,15 @@ use std::io::BufRead;
 use std::io::Write;
 
 use crate::ast;
+use crate::ast::expr::BinaryOp;
+use crate::ast::expr::ExprType;
+use crate::ast::expr::UnaryOp;
 use crate::ast::visitor::StatementVisitor;
 use crate::ast::{Expr, Visitor};
 use crate::error::LoxError;
 use crate::error::LoxErrorKind;
+use crate::position::PositionRange;
 use crate::scanner;
-use crate::token::Token;
-use crate::token::TokenType;
 
 #[derive(Debug, PartialEq, Clone)]
 enum Value {
@@ -77,24 +79,23 @@ impl<'a> Interpreter <'a> {
         }
     }
 
-    fn unary_op(&mut self, op: &Token, value: &Expr) -> Result<Value, LoxError> {
-        match op.type_ {
-            TokenType::Bang => {
+    fn unary_op(&mut self, op: &UnaryOp, value: &Expr, position: &PositionRange) -> Result<Value, LoxError> {
+        match op {
+            UnaryOp::Bang => {
                 let expr = self.visit_expr(value)?;
                 Ok(Value::Boolean(!Self::is_truthy(&expr)))
             }
-            TokenType::Minus => {
+            UnaryOp::Minus => {
                 let expr_value = self.visit_expr(value)?;
                 match expr_value {
                     Value::Number(n) => Ok(Value::Number(-1.0 * n)),
                     _ => Err(LoxError {
                         kind: LoxErrorKind::Runtime,
-                        line: op.line,
+                        position: position.clone(),
                         message: format!("Expected a number, got {}", expr_value),
                     }),
                 }
             }
-            _ => unreachable!("Unsupported unary operation: {}", op.type_),
         }
     }
 
@@ -106,41 +107,44 @@ impl<'a> Interpreter <'a> {
         }
     }
 
-    fn binary_op(&mut self, left: &Expr, op: &Token, right: &Expr) -> Result<Value, LoxError> {
+    fn binary_op(&mut self, left: &Expr, op: &BinaryOp, right: &Expr, position: &PositionRange) -> Result<Value, LoxError> {
         let left_value = self.visit_expr(left)?;
         let right_value = self.visit_expr(right)?;
-        match (&left_value, &op.type_, &right_value) {
+        match (&left_value, &op, &right_value) {
             (Value::Number(l), _, Value::Number(r)) => {
-                let result = Self::binary_arithmentic_op(*l, op, *r)?;
-                Ok(Value::Number(result))
+                let result = Self::binary_arithmentic_op(*l, op, *r, position);
+                Ok(result)
             }
-            (Value::String(l), TokenType::Plus, Value::String(r)) => {
+            (Value::String(l), BinaryOp::Plus, Value::String(r)) => {
                 let mut result = l.clone();
                 result.push_str(r);
                 Ok(Value::String(result))
-            }
+            },
+            (_, BinaryOp::EqualEqual, _) => Ok(Value::Boolean(left_value == right_value)),
+            (_, BinaryOp::BangEqual, _) => Ok(Value::Boolean(left_value != right_value)),
             _ => Err(LoxError {
                 kind: LoxErrorKind::Runtime,
-                line: op.line,
+                position: position.clone(),
                 message: format!(
                     "Unsupported operand types for binary operator {} ({}, {})",
-                    op.type_, left_value.to_debug_string(), right_value.to_debug_string()
+                    op, left_value.to_debug_string(), right_value.to_debug_string()
                 ),
             }),
         }
     }
 
-    fn binary_arithmentic_op(left: f64, op: &Token, right: f64) -> Result<f64, LoxError> {
-        match op.type_ {
-            TokenType::Minus => Ok(left - right),
-            TokenType::Plus => Ok(left + right),
-            TokenType::Star => Ok(left * right),
-            TokenType::Slash => Ok(left / right),
-            _ => Err(LoxError {
-                kind: LoxErrorKind::Runtime,
-                line: op.line,
-                message: format!("Unknown binary operator: {}", op.type_),
-            }),
+    fn binary_arithmentic_op(left: f64, op: &BinaryOp, right: f64, _position: &PositionRange) -> Value {
+        match op {
+            BinaryOp::Minus => Value::Number(left - right),
+            BinaryOp::Plus => Value::Number(left + right),
+            BinaryOp::Star => Value::Number(left * right),
+            BinaryOp::Slash => Value::Number(left / right),
+            BinaryOp::Greater => Value::Boolean(left > right),
+            BinaryOp::GreaterEqual => Value::Boolean(left >= right),
+            BinaryOp::Less => Value::Boolean(left < right),
+            BinaryOp::LessEqual => Value::Boolean(left <= right),
+            BinaryOp::EqualEqual => Value::Boolean(left == right),
+            BinaryOp::BangEqual => Value::Boolean(left != right),
         }
     }
 
@@ -157,22 +161,19 @@ impl Visitor for Interpreter<'_> {
     type Result = Result<Value, LoxError>;
 
     fn visit_expr(&mut self, expr: &crate::ast::Expr) -> Self::Result {
-        match expr {
-            Expr::Literal(token) => match &token.type_ {
-                TokenType::String(s) => Ok(Value::String(s.clone())),
-                TokenType::Number(n) => Ok(Value::Number(*n)),
-                TokenType::True => Ok(Value::Boolean(true)),
-                TokenType::False => Ok(Value::Boolean(false)),
-                _ => unreachable!("Unsupported literal type: {}", token.type_),
-            },
-            Expr::Unary(op, token) => self.unary_op(op, token.as_ref()),
-            Expr::Binary(l, op, r) => self.binary_op(l, op, r),
-            Expr::Grouping(expr) => self.visit_expr(expr),
-            Expr::Variable { name, line, } => match self.environment.get(name) {
+        match &expr.expr_type {
+            ExprType::StringLiteral(s) => Ok(Value::String(s.clone())),
+            ExprType::NumberLiteral(n) => Ok(Value::Number(*n)),
+            ExprType::BooleanLiteral(b) => Ok(Value::Boolean(*b)),
+            ExprType::Nil => Ok(Value::Nil),
+            ExprType::Unary(op, expr) => self.unary_op(&op, &expr, &expr.position),
+            ExprType::Binary(left, op, right) => self.binary_op(&left, &op, &right, &expr.position),
+            ExprType::Grouping(inner_expr) => self.visit_expr(&inner_expr),
+            ExprType::Variable { name } => match self.environment.get(name) {
                 None => Err(LoxError {
                     kind: LoxErrorKind::Runtime,
                     message: format!("Name \"{}\" is not defined", name),
-                    line: *line,
+                    position: expr.position.clone(),
                 }),
                 // TODO: can we avoid cloning here?
                 Some(value) => Ok((*value).clone()),
@@ -215,7 +216,7 @@ fn run_with_interpreter(program: &str, interpreter: &mut Interpreter) -> Result<
         Ok(tokens) => tokens,
         Err(error) => return Err(vec![error]),
     };
-    let statements = ast::parse(tokens)?;
+    let statements = ast::parse(&tokens)?;
     for statement in statements {
         if let Err(error) = interpreter.execute_statement(&statement) {
             return Err(vec![error]);
@@ -256,6 +257,8 @@ pub fn run_prompt() -> Result<(), Box<dyn Error>> {
 
 #[cfg(test)]
 mod run_tests {
+    use crate::position::Position;
+
     use super::*;
 
     macro_rules! parametrized_tests {
@@ -300,7 +303,15 @@ mod run_tests {
             Err(vec![
                 LoxError {
                     kind: LoxErrorKind::Runtime,
-                    line: 1,
+                    position: PositionRange { start: Position {
+                        line: 0,
+                        column: 0,
+                    },
+                    end: Position {
+                        line: 0,
+                        column: 0,
+                    }
+                },
                     message: "Unsupported operand types for binary operator + (String(abc), Number(123))".to_owned(),
                 },
             ]),
