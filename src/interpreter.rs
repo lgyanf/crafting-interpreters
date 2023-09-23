@@ -184,9 +184,9 @@ impl Visitor for Interpreter<'_> {
             ExprType::NumberLiteral(n) => Ok(Value::Number(*n)),
             ExprType::BooleanLiteral(b) => Ok(Value::Boolean(*b)),
             ExprType::Nil => Ok(Value::Nil),
-            ExprType::Unary(op, expr) => self.unary_op(&op, &expr, &expr.position),
-            ExprType::Binary(left, op, right) => self.binary_op(&left, &op, &right, &expr.position),
-            ExprType::Grouping(inner_expr) => self.visit_expr(&inner_expr),
+            ExprType::Unary(op, expr) => self.unary_op(op, expr, &expr.position),
+            ExprType::Binary(left, op, right) => self.binary_op(left, op, right, &expr.position),
+            ExprType::Grouping(inner_expr) => self.visit_expr(inner_expr),
             ExprType::Variable { name } => match self.environment.get(name) {
                 None => Err(LoxError {
                     kind: LoxErrorKind::Runtime,

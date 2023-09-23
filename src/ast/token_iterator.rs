@@ -11,7 +11,7 @@ pub struct TokenIterator<'a> {
 }
 
 impl<'a> TokenIterator<'a> {
-    pub fn new(tokens: &'a Vec<Token>) -> Self {
+    pub fn new(tokens: &'a [Token]) -> Self {
         Self {
             token_iterator: tokens.iter().peekable(),
             last_position: Some(PositionRange {
@@ -28,17 +28,11 @@ impl<'a> TokenIterator<'a> {
 
     pub fn peek_clone(&mut self) -> Option<Token> {
         let peek = self.peek();
-        match peek {
-            None => None,
-            Some(token_ref) => Some(token_ref.to_owned().to_owned()),
-        }
+        peek.map(|token_ref| token_ref.to_owned().to_owned())
     }
 
     pub fn last_position(&self) -> Option<PositionRange> {
-        match &self.last_position {
-            None => None,
-            Some(range) => Some(range.clone()),
-        }
+        self.last_position.as_ref().cloned()
     }
 }
 

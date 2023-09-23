@@ -15,15 +15,15 @@ impl Visitor for AstPrinter {
             ExprType::NumberLiteral(n) => n.to_string(),
             ExprType::Nil => "Nil".to_owned(),
             ExprType::Unary(op, e) => {
-                format!("({} {})", op, self.visit_expr(&e))
+                format!("({} {})", op, self.visit_expr(e))
             }
             ExprType::Binary(left, op, right) => format!(
                 "({} {} {})",
                 op,
-                self.visit_expr(&left),
-                self.visit_expr(&right)
+                self.visit_expr(left),
+                self.visit_expr(right)
             ),
-            ExprType::Grouping(e) => format!("(group {})", self.visit_expr(&e)),
+            ExprType::Grouping(e) => format!("(group {})", self.visit_expr(e)),
             ExprType::Variable { name } => name.clone(),
         }
     }

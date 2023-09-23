@@ -13,10 +13,7 @@ use self::scanner_iterator::ScannerIterator;
 type SourceIterator<'a> = ScannerIterator<'a>;
 
 fn peek_match(it: &mut SourceIterator, expected_char: char) -> bool {
-    match it.peek() {
-        Some(c) if *c == expected_char => true,
-        _ => false,
-    }
+    matches!(it.peek(), Some(c) if *c == expected_char)
 }
 
 fn peek_match_equals(

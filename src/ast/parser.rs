@@ -184,7 +184,7 @@ impl Parser<'_> {
                 position: self
                     .token_iterator
                     .last_position()
-                    .unwrap_or_else(|| PositionRange {
+                    .unwrap_or(PositionRange {
                         start: Position { line: 0, column: 0 },
                         end: Position { line: 0, column: 0 },
                     }),
@@ -245,7 +245,7 @@ impl Parser<'_> {
                 }
                 _ => Err(LoxError {
                     kind: LoxErrorKind::Syntax,
-                    position: self.token_iterator.last_position().unwrap_or_else(|| {
+                    position: self.token_iterator.last_position().unwrap_or({
                         PositionRange {
                             start: Position { line: 0, column: 0 },
                             end: Position { line: 0, column: 0 },

@@ -12,7 +12,7 @@ pub struct ScannerIterator<'a> {
 impl<'a> ScannerIterator<'a> {
     pub fn new(s: &'a str) -> Self {
         ScannerIterator {
-            it: s.chars().into_iter().peekable(),
+            it: s.chars().peekable(),
             current_line: 0,
             current_column: 0,
             prev_char_is_line_break: false,
