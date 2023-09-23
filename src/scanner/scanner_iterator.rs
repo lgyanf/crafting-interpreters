@@ -44,7 +44,7 @@ impl<'a> Iterator for ScannerIterator<'a> {
         }
         match next {
             Some(c) if c == '\n' => self.prev_char_is_line_break = true,
-            _ => {},
+            _ => self.prev_char_is_line_break = false,
         }
         next
     }

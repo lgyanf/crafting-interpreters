@@ -1,3 +1,4 @@
+
 mod scanner_iterator;
 
 use std::{vec::Vec};
@@ -259,7 +260,7 @@ pub fn scan(source: &str) -> Result<Vec<Token>, LoxError> {
                         let current_position = it.current_position();
                         Position {
                             line: current_position.line,
-                            column: current_position.column - token_type.size() + 1,
+                            column: current_position.column + 1 - token_type.size(),
                         }
                     }),
                     end: it.current_position(),

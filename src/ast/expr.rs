@@ -88,6 +88,21 @@ pub enum ExprType {
     Variable { name: String },
 }
 
+impl Display for ExprType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ExprType::StringLiteral(s) => write!(f, "\"{}\"", s),
+            ExprType::NumberLiteral(n) => write!(f, "{}", n),
+            ExprType::BooleanLiteral(b) => write!(f, "{}", b),
+            ExprType::Nil => write!(f, "Nil"),
+            ExprType::Unary(op, right) => write!(f, "{}{}", op, right),
+            ExprType::Binary(left, op, right) => write!(f, "{}{}{}", left, op, right),
+            ExprType::Grouping(expr) => write!(f, "({})", expr),
+            ExprType::Variable { name } => write!(f, "{}", name),
+        }
+    }
+}
+
 #[derive(PartialEq, Debug, Clone)]
 pub struct Expr {
     pub expr_type: ExprType,
@@ -125,5 +140,11 @@ impl Expr {
 
     pub fn boxed(&self) -> Box<Self> {
         Box::new(self.clone())
+    }
+}
+
+impl Display for Expr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.expr_type)
     }
 }

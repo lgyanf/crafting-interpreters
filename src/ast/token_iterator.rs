@@ -1,6 +1,6 @@
 use std::iter::Peekable;
 
-use crate::{token::Token, position::PositionRange};
+use crate::{token::Token, position::{PositionRange, Position}};
 
 pub struct TokenIterator<'a> {
     token_iterator: Peekable<std::slice::Iter<'a, Token>>,
@@ -11,7 +11,12 @@ impl<'a> TokenIterator<'a> {
     pub fn new(tokens: &'a Vec<Token>) -> Self {
         Self {
             token_iterator: tokens.iter().peekable(),
-            last_position: None,
+            last_position: Some(PositionRange { start: Position {
+                line: 0,
+                column: 0,
+            }, end: Position {
+                line: 0, column: 0,
+            } }),
         }
     }
 

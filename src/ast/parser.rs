@@ -203,11 +203,26 @@ impl Parser<'_> {
                 message: "Expected expression.".to_owned(),
             }),
             Some(t) => match &t.type_ {
-                TokenType::Nil => Ok(Expr::nil(t.position.clone())),
-                TokenType::False => Ok(Expr::boolean_literal(false, t.position.clone())),
-                TokenType::True => Ok(Expr::boolean_literal(true, t.position.clone())),
-                TokenType::Number(n) => Ok(Expr::number_literal(*n, t.position.clone())),
-                TokenType::String(s) => Ok(Expr::string_literal(s, t.position.clone())),
+                TokenType::Nil => {
+                    self.token_iterator.next();
+                    Ok(Expr::nil(t.position.clone()))
+                },
+                TokenType::False => {
+                    self.token_iterator.next();
+                    Ok(Expr::boolean_literal(false, t.position.clone()))
+                },
+                TokenType::True => {
+                    self.token_iterator.next();
+                    Ok(Expr::boolean_literal(true, t.position.clone()))
+                },
+                TokenType::Number(n) => {
+                    self.token_iterator.next();
+                    Ok(Expr::number_literal(*n, t.position.clone()))
+                },
+                TokenType::String(s) => {
+                    self.token_iterator.next();
+                    Ok(Expr::string_literal(s, t.position.clone()))
+                },
                 TokenType::Identifier(name) => {
                     let position = t.position.clone();
                     self.token_iterator.next();
@@ -251,7 +266,8 @@ impl Parser<'_> {
     }
 
     fn consume_if_matches(&mut self, token_types: &[TokenType]) -> Option<Token> {
-        match self.token_iterator.peek() {
+        let peek = self.token_iterator.peek();
+        match peek {
             None => None,
             Some(t)
                 if (*token_types)

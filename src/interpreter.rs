@@ -305,11 +305,11 @@ mod run_tests {
                     kind: LoxErrorKind::Runtime,
                     position: PositionRange { start: Position {
                         line: 0,
-                        column: 0,
+                        column: 1,
                     },
                     end: Position {
                         line: 0,
-                        column: 0,
+                        column: 11,
                     }
                 },
                     message: "Unsupported operand types for binary operator + (String(abc), Number(123))".to_owned(),
