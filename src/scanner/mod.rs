@@ -235,7 +235,10 @@ pub fn scan(source: &str) -> Result<Vec<Token>, LoxError> {
                     Ok(Some(TokenType::String(accumulator)))
                 }
             }
-            cc if cc.is_ascii_digit() => consume_number(&mut it, cc, line),
+            cc if cc.is_ascii_digit() => {
+                token_start = Some(it.current_position());
+                consume_number(&mut it, cc, line)
+            }
             cc if cc.is_alphabetic() => consume_identifier_or_keyword(&mut it, cc),
             '/' => Ok(Some(TokenType::Slash)),
             '\n' => {
@@ -284,6 +287,29 @@ mod tests {
         }
     }
 
+    fn single_char(line: usize, column: usize) -> PositionRange {
+        PositionRange {
+            start: Position {
+                line,
+                column: column,
+            },
+            end: Position { line, column },
+        }
+    }
+
+    fn range(line: usize, start_column: usize, end_column: usize) -> PositionRange {
+        PositionRange {
+            start: Position {
+                line,
+                column: start_column,
+            },
+            end: Position {
+                line,
+                column: end_column,
+            },
+        }
+    }
+
     parametrized_tests! {
         empty_string: (
             "",
@@ -298,122 +324,124 @@ mod tests {
             ",
             Ok(vec![])
         ),
-        // braces_and_parenthesis: (
-        //     "({})",
-        //     Ok(vec![
-        //         Token{ type_: TokenType::LeftParen, line: 1, },
-        //         Token{ type_: TokenType::LeftBrace, line: 1, },
-        //         Token{ type_: TokenType::RightBrace, line: 1, },
-        //         Token{ type_: TokenType::RightParen, line: 1, },
-        //     ])
-        // ),
-        // string_literal: (
-        //     "\"abc\"",
-        //     Ok(vec![
-        //         Token{ type_: TokenType::String("abc".to_owned()), line: 1, },
-        //     ])
-        // ),
-        // string_literal_with_numbers: (
-        //     "\"123\"",
-        //     Ok(vec![
-        //         Token{ type_: TokenType::String("123".to_owned()), line: 1, },
-        //     ])
-        // ),
-        // unterminated_string_literal: (
-        //     "\"abc",
-        //     Err(LoxError {
-        //         kind: LoxErrorKind::Lexical,
-        //         message: "Unterminated string".to_owned(),
-        //         line: 1,
-        //     }),
-        // ),
-        // int_literal: (
-        //     "123",
-        //     Ok(vec![
-        //         Token{ type_: TokenType::Number(123.0), line: 1, },
-        //     ])
-        // ),
-        // float_literal: (
-        //     "123.567",
-        //     Ok(vec![
-        //         Token{ type_: TokenType::Number(123.567), line: 1, },
-        //     ])
-        // ),
-        // float_literal_with_line_break: (
-        //     "123.5
-        //     ",
-        //     Ok(vec![
-        //         Token{ type_: TokenType::Number(123.5), line: 1, },
-        //     ])
-        // ),
-        // error_leading_decimal_point: (
-        //     ".5",
-        //     Err(LoxError { kind: LoxErrorKind::Lexical, line: 1, message: "Invalid number literal: 5".to_owned()}),
-        // ),
-        // error_trailing_decimal_point: (
-        //     "5.",
-        //     Err(LoxError { kind: LoxErrorKind::Lexical, line: 1, message: "Invalid number literal".to_owned()}),
-        // ),
-        // error_number_with_trailing_letters: (
-        //     "123ff",
-        //     Err(LoxError { kind: LoxErrorKind::Lexical, line: 1, message: "Invalid number literal: f".to_owned()}),
-        // ),
-        // error_float_number_with_trailing_letters: (
-        //     "123.1ff",
-        //     Err(LoxError { kind: LoxErrorKind::Lexical, line: 1, message: "Invalid number literal".to_owned()}),
-        // ),
-        // keyword_class: (
-        //     "class",
-        //     Ok(vec![
-        //         Token{ type_: TokenType::Class, line: 1, },
-        //     ]),
-        // ),
-        // identifier_classs: (
-        //     "classs",
-        //     Ok(vec![
-        //         Token{ type_: TokenType::Identifier("classs".to_owned()), line: 1, },
-        //     ]),
-        // ),
-        // identifier_alphanumeric: (
-        //     "test123",
-        //     Ok(vec![
-        //         Token{ type_: TokenType::Identifier("test123".to_owned()), line: 1, },
-        //     ]),
-        // ),
-        // int_sum: (
-        //     "1+2",
-        //     Ok(vec![
-        //         Token { type_: TokenType::Number(1.0), line: 1 },
-        //         Token { type_: TokenType::Plus, line: 1 },
-        //         Token { type_: TokenType::Number(2.0), line: 1 },
-        //     ]),
-        // ),
-        // int_float_sum: (
-        //     "1 + 2.0
-        //     ",
-        //     Ok(vec![
-        //         Token { type_: TokenType::Number(1.0), line: 1 },
-        //         Token { type_: TokenType::Plus, line: 1 },
-        //         Token { type_: TokenType::Number(2.0), line: 1 },
-        //     ]),
-        // ),
-        // float_sum: (
-        //     "1.1+2.0
-        //     ",
-        //     Ok(vec![
-        //         Token { type_: TokenType::Number(1.1), line: 1 },
-        //         Token { type_: TokenType::Plus, line: 1 },
-        //         Token { type_: TokenType::Number(2.0), line: 1 },
-        //     ]),
-        // ),
-        // sum_statement: (
-        //     "1+2;",
-        //     Ok(vec![
-        //         Token::new_number(1.0, 1),
-        //         Token::new(TokenType::Plus, 1),
-        //         Token::new_number(2.0, 1),
-        //         Token::new(TokenType::Semicolon, 1),
-        //     ])
-        // ),
+        braces_and_parenthesis: (
+            "({})",
+            Ok(vec![
+                Token{ type_: TokenType::LeftParen, position: single_char(1, 1), },
+                Token{ type_: TokenType::LeftBrace, position: single_char(1, 2), },
+                Token{ type_: TokenType::RightBrace, position: single_char(1, 3), },
+                Token{ type_: TokenType::RightParen, position: single_char(1, 4), },
+            ])
+        ),
+        string_literal: (
+            "\"abc\"",
+            Ok(vec![
+                Token{ type_: TokenType::String("abc".to_owned()), position: range(1, 1, 5), },
+            ])
+        ),
+        string_literal_with_numbers: (
+            "\"123\"",
+            Ok(vec![
+                Token{ type_: TokenType::String("123".to_owned()), position: range(1, 1, 5), },
+            ])
+        ),
+        unterminated_string_literal: (
+            "\"abc",
+            Err(LoxError {
+                kind: LoxErrorKind::Lexical,
+                message: "Unterminated string".to_owned(),
+                position: range(1, 1, 5),
+            }),
+        ),
+        int_literal: (
+            "123",
+            Ok(vec![
+                Token{ type_: TokenType::Number(123.0), position: range(1, 1, 3), },
+            ])
+        ),
+        float_literal: (
+            "123.567",
+            Ok(vec![
+                Token{ type_: TokenType::Number(123.567), position: range(1, 1, 7), },
+            ])
+        ),
+        float_literal_with_line_break: (
+            "123.5
+            ",
+            Ok(vec![
+                Token{ type_: TokenType::Number(123.5), position: range(1, 1, 5), },
+            ])
+        ),
+        // TODO: errors should report the whole token range instead of a single char
+        error_leading_decimal_point: (
+            ".5",
+            Err(LoxError { kind: LoxErrorKind::Lexical, position: range(1, 1, 1), message: "Invalid number literal: 5".to_owned()}),
+        ),
+        error_trailing_decimal_point: (
+            "5.",
+            Err(LoxError { kind: LoxErrorKind::Lexical, position: range(1, 2, 2), message: "Invalid number literal".to_owned()}),
+        ),
+        // TODO: report letter position instead of the last digit position
+        error_number_with_trailing_letters: (
+            "123ff",
+            Err(LoxError { kind: LoxErrorKind::Lexical, position: range(1, 3, 3), message: "Invalid number literal: f".to_owned()}),
+        ),
+        error_float_number_with_trailing_letters: (
+            "123.1ff",
+            Err(LoxError { kind: LoxErrorKind::Lexical, position: range(1, 5, 5), message: "Invalid number literal".to_owned()}),
+        ),
+        keyword_class: (
+            "class",
+            Ok(vec![
+                Token{ type_: TokenType::Class, position: range(1, 1, 5), },
+            ]),
+        ),
+        identifier_classs: (
+            "classs",
+            Ok(vec![
+                Token{ type_: TokenType::Identifier("classs".to_owned()), position: range(1, 1, 6), },
+            ]),
+        ),
+        identifier_alphanumeric: (
+            "test123",
+            Ok(vec![
+                Token{ type_: TokenType::Identifier("test123".to_owned()), position: range(1, 1, 7), },
+            ]),
+        ),
+        int_sum: (
+            "1+2",
+            Ok(vec![
+                Token { type_: TokenType::Number(1.0), position: single_char(1, 1) },
+                Token { type_: TokenType::Plus, position: single_char(1, 2) },
+                Token { type_: TokenType::Number(2.0), position: single_char(1, 3) },
+            ]),
+        ),
+        int_float_sum: (
+            "1 + 2.0
+            ",
+            Ok(vec![
+                Token { type_: TokenType::Number(1.0), position: range(1, 1, 1) },
+                Token { type_: TokenType::Plus, position: range(1, 3, 3) },
+                Token { type_: TokenType::Number(2.0), position: range(1, 5, 7) },
+            ]),
+        ),
+        float_sum: (
+            "1.1+2.0
+            ",
+            Ok(vec![
+                Token { type_: TokenType::Number(1.1), position: range(1, 1, 3) },
+                Token { type_: TokenType::Plus, position: range(1, 4, 4) },
+                Token { type_: TokenType::Number(2.0), position: range(1, 5, 7) },
+            ]),
+        ),
+        sum_statement: (
+            "1+2;",
+            Ok(vec![
+                Token::new_number(1.0, single_char(1, 1)),
+                Token::new(TokenType::Plus, single_char(1, 2)),
+                Token::new_number(2.0, single_char(1, 3)),
+                Token::new(TokenType::Semicolon, single_char(1, 4)),
+            ])
+        ),
     }
 }

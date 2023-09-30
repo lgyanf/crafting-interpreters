@@ -325,7 +325,7 @@ impl Parser<'_> {
     }
 }
 
-pub fn parse(tokens: &Vec<Token>) -> Result<Vec<Statement>, Vec<LoxError>> {
+pub fn parse(tokens: &[Token]) -> Result<Vec<Statement>, Vec<LoxError>> {
     let mut parser = Parser {
         token_iterator: TokenIterator::new(tokens),
     };

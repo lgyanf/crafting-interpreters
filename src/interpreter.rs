@@ -319,11 +319,11 @@ mod run_tests {
                 LoxError {
                     kind: LoxErrorKind::Runtime,
                     position: PositionRange { start: Position {
-                        line: 0,
+                        line: 1,
                         column: 1,
                     },
                     end: Position {
-                        line: 0,
+                        line: 1,
                         column: 11,
                     }
                 },
