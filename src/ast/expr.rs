@@ -150,6 +150,13 @@ impl Expr {
     pub fn boxed(&self) -> Box<Self> {
         Box::new(self.clone())
     }
+
+    pub fn with_new_position(self, new_position: PositionRange) -> Self {
+        Self {
+            expr_type: self.expr_type,
+            position: new_position,
+        }
+    }
 }
 
 impl Display for Expr {

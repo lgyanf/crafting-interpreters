@@ -78,10 +78,14 @@ impl Parser<'_> {
             }
             _ => None,
         };
-        self.consume_semicolon(&var_keyword.position, "variable declaration")?;
+        let semicolon = self.consume_semicolon(&var_keyword.position, "variable declaration")?;
         Ok(Statement::Var {
             name: name.clone(),
             initializer,
+            position: PositionRange {
+                start: var_keyword.position.start.clone(),
+                end: semicolon.position.end.clone(),
+            },
         })
     }
 
@@ -94,16 +98,30 @@ impl Parser<'_> {
 
     fn print_statement(&mut self) -> Result<Statement, LoxError> {
         // consume 'print' keyword
-        let expression_start = self.token_iterator.next().unwrap();
+        let print_keyword = self.token_iterator.next().unwrap();
         let expr = self.expression()?;
-        self.consume_semicolon(&expression_start.position, "value")?;
-        Ok(Statement::Print { expr })
+        let semicolon = self.consume_semicolon(&expr.position, "value")?;
+        let end_position = semicolon.position.end.clone();
+        Ok(Statement::Print {
+            expr,
+            position: PositionRange {
+                start: print_keyword.position.start.clone(),
+                end: end_position,
+            },
+        })
     }
 
     fn expression_statement(&mut self) -> Result<Statement, LoxError> {
         let expr = self.expression()?;
-        self.consume_semicolon(&expr.position, "expression")?;
-        Ok(Statement::Expression { expr })
+        let semicolon = self.consume_semicolon(&expr.position, "expression")?;
+        let statement_start = expr.position.start.clone();
+        Ok(Statement::Expression {
+            expr,
+            position: PositionRange {
+                start: statement_start,
+                end: semicolon.position.end.clone(),
+            },
+        })
     }
 
     fn expression(&mut self) -> Result<Expr, LoxError> {
@@ -277,7 +295,7 @@ impl Parser<'_> {
         &mut self,
         expression_start: &PositionRange,
         error_message_suffix: &str,
-    ) -> Result<(), LoxError> {
+    ) -> Result<&Token, LoxError> {
         let next_token_type = self
             .token_iterator
             .peek()
@@ -285,8 +303,8 @@ impl Parser<'_> {
             .unwrap_or_else(|| "<EOF>".to_owned());
         match self.token_iterator.peek() {
             Some(token) if token.type_ == TokenType::Semicolon => {
-                self.token_iterator.next();
-                Ok(())
+                let semicolon = self.token_iterator.next().unwrap();
+                Ok(semicolon)
             }
             _ => Err(LoxError {
                 kind: LoxErrorKind::Syntax,
@@ -342,27 +360,41 @@ mod parser_tests {
             #[test]
             fn $name() {
                 let (input, expected) = $value;
-                let expr = parse(input);
+                let expr = parse(&input);
                 assert_eq!(expr, expected);
             }
         )*
         }
     }
 
-    // parametrized_tests!(
-    //     empty_string: (vec![], Ok(vec![]),),
-    //     number_literal:
-    //         (
-    //             vec![
-    //                 Token::new_number(123.1, 1),
-    //                 Token::new(TokenType::Semicolon, 1),
-    //             ],
-    //             Ok(
-    //                 vec![Statement::Expression {
-    //                     expr: Expr::number_literal(123.1, 1),
-    //                 }],
-    //             )
-    //         ),
+    fn range(line: usize, start_column: usize, end_column: usize) -> PositionRange {
+        PositionRange {
+            start: Position {
+                line,
+                column: start_column,
+            },
+            end: Position {
+                line,
+                column: end_column,
+            },
+        }
+    }
+
+    parametrized_tests!(
+        empty_string: (vec![], Ok(vec![]),),
+        number_literal:
+            (
+                vec![
+                    Token::new_number(123.1, range(1, 1, 5)),
+                    Token::new(TokenType::Semicolon, range(1, 6, 6)),
+                ],
+                Ok(
+                    vec![Statement::Expression {
+                        expr: Expr::number_literal(123.1, range(1, 1, 5)),
+                        position: range(1, 1, 6),
+                    }],
+                )
+            ),
     //     number_sum:
     //         (
     //             vec![
@@ -573,5 +605,5 @@ mod parser_tests {
     //             }],
     //         )
     //     ),
-    // );
+    );
 }

@@ -205,15 +205,19 @@ impl StatementVisitor for Interpreter<'_> {
 
     fn visit_statement(&mut self, statement: &ast::Statement) -> Self::Result {
         match statement {
-            ast::Statement::Expression { expr } => {
+            ast::Statement::Expression { expr, position: _ } => {
                 self.visit_expr(expr)?;
             }
-            ast::Statement::Print { expr } => {
+            ast::Statement::Print { expr, position: _ } => {
                 let value = self.visit_expr(expr)?;
                 println!("{}", value);
                 writeln!(self.stdout, "{}", value);
             }
-            ast::Statement::Var { name, initializer } => {
+            ast::Statement::Var {
+                name,
+                initializer,
+                position: _,
+            } => {
                 let value = match initializer {
                     None => Value::Nil,
                     Some(expr) => self.interpret_expression(expr)?,
