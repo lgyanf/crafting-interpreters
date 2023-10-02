@@ -395,49 +395,59 @@ mod parser_tests {
                     }],
                 )
             ),
-    //     number_sum:
-    //         (
-    //             vec![
-    //                 Token::new_number(123.1, 1),
-    //                 Token::new(TokenType::Plus, 1),
-    //                 Token::new_number(456.2, 1),
-    //                 Token::new(TokenType::Semicolon, 1),
-    //             ],
-    //             Ok(
-    //                 vec![Statement::Expression {
-    //                     expr: Expr::Binary(
-    //                         Expr::number_literal(123.1, 1).boxed(),
-    //                         Token::new(TokenType::Plus, 1),
-    //                         Expr::number_literal(456.2, 1).boxed(),
-    //                     ),
-    //                 }],
-    //             ),
-    //         ),
-    //     binary_priorities:
-    //         (
-    //             vec![
-    //                 Token::new_number(1.0, 1),
-    //                 Token::new(TokenType::Plus, 1),
-    //                 Token::new_number(2.0, 1),
-    //                 Token::new(TokenType::Star, 1),
-    //                 Token::new_number(3.0, 1),
-    //                 Token::new(TokenType::Semicolon, 1),
-    //             ],
-    //             Ok(
-    //                 vec![Statement::Expression {
-    //                     expr: Expr::Binary(
-    //                         Expr::number_literal(1.0, 1).boxed(),
-    //                         Token::new(TokenType::Plus, 1),
-    //                         Expr::Binary(
-    //                             Expr::number_literal(2.0, 1).boxed(),
-    //                             Token::new(TokenType::Star, 1),
-    //                             Expr::number_literal(3.0, 1).boxed(),
-    //                         )
-    //                         .boxed(),
-    //                     ),
-    //                 }],
-    //             ),
-    //         ),
+        number_sum:
+            (
+                vec![
+                    Token::new_number(123.1, range(1, 1, 5)),
+                    Token::new(TokenType::Plus, range(1, 6, 6)),
+                    Token::new_number(456.2, range(1, 7, 11)),
+                    Token::new(TokenType::Semicolon, range(1, 12, 12)),
+                ],
+                Ok(
+                    vec![Statement::Expression {
+                        expr: Expr {
+                            expr_type: ExprType::Binary(
+                                Expr::number_literal(123.1, range(1, 1, 5)).boxed(),
+                                BinaryOp::Plus,
+                                Expr::number_literal(456.2, range(1, 7, 11)).boxed(),
+                            ),
+                            position: range(1, 1, 11),
+                        },
+                        position: range(1, 1, 12),
+                    }],
+                ),
+            ),
+        binary_priorities:
+            (
+                vec![
+                    Token::new_number(1.0, range(1, 1, 3)),
+                    Token::new(TokenType::Plus, range(1, 4, 4)),
+                    Token::new_number(2.0, range(1, 5, 7)),
+                    Token::new(TokenType::Star, range(1, 8, 8)),
+                    Token::new_number(3.0, range(1, 9, 11)),
+                    Token::new(TokenType::Semicolon, range(1, 12, 12)),
+                ],
+                Ok(
+                    vec![Statement::Expression {
+                        expr: Expr {
+                            expr_type: ExprType::Binary(
+                                Expr::number_literal(1.0, range(1, 1, 3)).boxed(),
+                                BinaryOp::Plus,
+                                Expr {
+                                    expr_type: ExprType::Binary(
+                                        Expr::number_literal(2.0, range(1, 5, 7)).boxed(),
+                                        BinaryOp::Star,
+                                        Expr::number_literal(3.0, range(1, 9, 11)).boxed(),
+                                    ),
+                                    position: range(1, 5, 11),
+                                }.boxed(),
+                            ),
+                            position: range(1, 1, 11),
+                        },
+                        position: range(1, 1, 12),
+                    }],
+                ),
+            ),
     //     error_sum_without_second_operand:
     //         (
     //             vec![
