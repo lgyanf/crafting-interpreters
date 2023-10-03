@@ -353,6 +353,7 @@ pub fn parse(tokens: &[Token]) -> Result<Vec<Statement>, Vec<LoxError>> {
 #[cfg(test)]
 mod parser_tests {
     use super::*;
+    use pretty_assertions::assert_eq;
 
     macro_rules! parametrized_tests {
         ($($name:ident: $value:expr,)*) => {
@@ -448,172 +449,226 @@ mod parser_tests {
                     }],
                 ),
             ),
-    //     error_sum_without_second_operand:
-    //         (
-    //             vec![
-    //                 Token::new_number(123.1, 1),
-    //                 Token::new(TokenType::Plus, 1),
-    //                 Token::new(TokenType::Semicolon, 1),
-    //             ],
-    //             Err(
-    //                 vec![LoxError {
-    //                     kind: LoxErrorKind::Syntax,
-    //                     line: 1,
-    //                     message: "Expected expression.".to_owned()
-    //                 },],
-    //             ),
-    //         ),
-    //     grouping_with_binary_inside:
-    //         (
-    //             vec![
-    //                 Token::new(TokenType::LeftParen, 1),
-    //                 Token::new_number(123.1, 1),
-    //                 Token::new(TokenType::Plus, 1),
-    //                 Token::new_number(456.2, 1),
-    //                 Token::new(TokenType::RightParen, 1),
-    //                 Token::new(TokenType::Semicolon, 1),
-    //             ],
-    //             Ok(
-    //                 vec![Statement::Expression {
-    //                     expr: Expr::Grouping(
-    //                         Expr::Binary(
-    //                             Expr::number_literal(123.1, 1).boxed(),
-    //                             Token::new(TokenType::Plus, 1),
-    //                             Expr::number_literal(456.2, 1).boxed(),
-    //                         )
-    //                         .boxed(),
-    //                     ),
-    //                 },],
-    //             ),
-    //         ),
-    //     grouping_with_unary_minus:
-    //         (
-    //             vec![
-    //                 Token::new(TokenType::LeftParen, 1),
-    //                 Token::new(TokenType::Minus, 1),
-    //                 Token::new_number(456.2, 1),
-    //                 Token::new(TokenType::RightParen, 1),
-    //                 Token::new(TokenType::Semicolon, 1),
-    //             ],
-    //             Ok(
-    //                 vec![Statement::Expression {
-    //                     expr: Expr::Grouping(
-    //                         Expr::Unary(
-    //                             Token::new(TokenType::Minus, 1),
-    //                             Expr::number_literal(456.2, 1).boxed(),
-    //                         )
-    //                         .boxed(),
-    //                     ),
-    //                 },],
-    //             ),
-    //         ),
-    //     error_grouping_no_right_paren:
-    //         (
-    //             vec![
-    //                 Token::new(TokenType::LeftParen, 1),
-    //                 Token::new_number(123.1, 1),
-    //                 Token::new(TokenType::Plus, 1),
-    //                 Token::new_number(456.2, 1),
-    //                 Token::new(TokenType::Semicolon, 1),
-    //             ],
-    //             Err(
-    //                 vec![LoxError {
-    //                     kind: LoxErrorKind::Syntax,
-    //                     message: "Expected ')' after expression".to_owned(),
-    //                     line: 1,
-    //                 },],
-    //             ),
-    //         ),
-    //     error_unary_no_operand:
-    //         (
-    //             vec![
-    //                 Token::new(TokenType::Minus, 1),
-    //                 Token::new(TokenType::Semicolon, 1),
-    //             ],
-    //             Err(
-    //                 vec![LoxError {
-    //                     kind: LoxErrorKind::Syntax,
-    //                     message: "Expected expression.".to_owned(),
-    //                     line: 1,
-    //                 },],
-    //             ),
-    //         ),
-    //     var_declaration:
-    //         (
-    //             vec![
-    //                 Token::new(TokenType::Var, 1),
-    //                 Token::new(TokenType::Identifier("test".to_owned()), 1),
-    //                 Token::new(TokenType::Semicolon, 1),
-    //             ],
-    //             Ok(
-    //                 vec![Statement::Var {
-    //                     name: "test".to_owned(),
-    //                     initializer: None,
-    //                 },],
-    //             ),
-    //         ),
-    //     var_declaration_with_initializer:
-    //         (
-    //             vec![
-    //                 Token::new(TokenType::Var, 1),
-    //                 Token::new(TokenType::Identifier("test".to_owned()), 1),
-    //                 Token::new(TokenType::Equal, 1),
-    //                 Token::new_number(123.1, 1),
-    //                 Token::new(TokenType::Semicolon, 1),
-    //             ],
-    //             Ok(
-    //                 vec![Statement::Var {
-    //                     name: "test".to_owned(),
-    //                     initializer: Some(Expr::number_literal(123.1, 1)),
-    //                 },],
-    //             ),
-    //         ),
-    //     var_declaration_with_initializer_expression:
-    //         (
-    //             vec![
-    //                 Token::new(TokenType::Var, 1),
-    //                 Token::new(TokenType::Identifier("test".to_owned()), 1),
-    //                 Token::new(TokenType::Equal, 1),
-    //                 Token::new_number(1.0, 1),
-    //                 Token::new(TokenType::Plus, 1),
-    //                 Token::new_number(2.0, 1),
-    //                 Token::new(TokenType::Star, 1),
-    //                 Token::new_number(3.0, 1),
-    //                 Token::new(TokenType::Semicolon, 1),
-    //             ],
-    //             Ok(
-    //                 vec![Statement::Var {
-    //                     name: "test".to_owned(),
-    //                     initializer: Some(Expr::Binary(
-    //                         Expr::number_literal(1.0, 1).boxed(),
-    //                         Token::new(TokenType::Plus, 1),
-    //                         Expr::Binary(
-    //                             Expr::number_literal(2.0, 1).boxed(),
-    //                             Token::new(TokenType::Star, 1),
-    //                             Expr::number_literal(3.0, 1).boxed(),
-    //                         )
-    //                         .boxed(),
-    //                     )),
-    //                 },],
-    //             ),
-    //         ),
-    //     print_statement_with_string_sum: (
-    //         vec![
-    //             Token::new(TokenType::Print, 1),
-    //             Token::new_string("abc", 1),
-    //             Token::new(TokenType::Plus, 1),
-    //             Token::new_string("def", 1),
-    //             Token::new(TokenType::Semicolon, 1),
-    //         ],
-    //         Ok(
-    //             vec![Statement::Print {
-    //                 expr: Expr::Binary(
-    //                     Expr::string_literal("abc", 1).boxed(),
-    //                     Token::new(TokenType::Plus, 1),
-    //                     Expr::string_literal("def", 1).boxed(),
-    //                 ),
-    //             }],
-    //         )
-    //     ),
+        error_sum_without_second_operand:
+            (
+                vec![
+                    Token::new_number(123.1, range(1, 1, 5)),
+                    Token::new(TokenType::Plus, range(1, 6, 6)),
+                    Token::new(TokenType::Semicolon, range(1, 7, 7)),
+                ],
+                Err(
+                    // TODO: report expression start in the error position
+                    vec![LoxError {
+                        kind: LoxErrorKind::Syntax,
+                        position: range(1, 6, 6),
+                        message: "Expected expression, got ;.".to_owned()
+                    },],
+                ),
+            ),
+        grouping_with_binary_inside:
+            (
+                vec![
+                    Token::new(TokenType::LeftParen, range(1, 1, 1)),
+                    Token::new_number(123.1, range(1, 2, 6)),
+                    Token::new(TokenType::Plus, range(1, 7, 7)),
+                    Token::new_number(456.2, range(1, 8, 12)),
+                    Token::new(TokenType::RightParen, range(1, 13, 13)),
+                    Token::new(TokenType::Semicolon, range(1, 14, 14)),
+                ],
+                Ok(
+                    vec![Statement::Expression {
+                        expr: Expr {
+                            expr_type: ExprType::Grouping(
+                                Expr {
+                                    expr_type: ExprType::Binary(
+                                        Expr {
+                                            expr_type: ExprType::NumberLiteral(123.1),
+                                            position: range(1, 2, 6),
+                                        }.boxed(),
+                                        BinaryOp::Plus,
+                                        Expr {
+                                            expr_type: ExprType::NumberLiteral(456.2),
+                                            position: range(1, 8, 12),
+                                        }.boxed(),
+                                    ),
+                                    position: range(1, 2, 12),
+                                }.boxed(),
+                            ),
+                            position: range(1, 1, 13),
+                        },
+                        position: range(1, 1, 14),
+                    },],
+                ),
+            ),
+        grouping_with_unary_minus:
+            (
+                vec![
+                    Token::new(TokenType::LeftParen, range(1, 1, 1)),
+                    Token::new(TokenType::Minus, range(1, 2, 2)),
+                    Token::new_number(456.2, range(1, 3, 7)),
+                    Token::new(TokenType::RightParen, range(1, 8, 8)),
+                    Token::new(TokenType::Semicolon, range(1, 9, 9)),
+                ],
+                Ok(
+                    vec![Statement::Expression {
+                        expr: Expr {
+                            expr_type: ExprType::Grouping(
+                                Expr {
+                                    expr_type: ExprType::Unary(
+                                        UnaryOp::Minus,
+                                        Expr {
+                                            expr_type: ExprType::NumberLiteral(456.2),
+                                            position: range(1, 3, 7),
+                                        }.boxed(),
+                                    ),
+                                    position: range(1, 2, 7),
+                                }.boxed(),
+                            ),
+                            position: range(1, 1, 8),
+                        },
+                        position: range(1, 1, 9),
+                    },],
+                ),
+            ),
+        error_grouping_no_right_paren:
+            (
+                vec![
+                    Token::new(TokenType::LeftParen, range(1, 1, 1)),
+                    Token::new_number(123.1, range(1, 2, 6)),
+                    Token::new(TokenType::Plus, range(1, 7, 7)),
+                    Token::new_number(456.2, range(1, 8, 12)),
+                    Token::new(TokenType::Semicolon, range(1, 13, 13)),
+                ],
+                Err(
+                    vec![LoxError {
+                        kind: LoxErrorKind::Syntax,
+                        message: "Expected ')' after expression".to_owned(),
+                        position: range(1, 1, 12),
+                    },],
+                ),
+            ),
+        error_unary_no_operand:
+            (
+                vec![
+                    Token::new(TokenType::Minus, range(1, 1, 1)),
+                    Token::new(TokenType::Semicolon, range(1, 2, 2)),
+                ],
+                Err(
+                    vec![LoxError {
+                        kind: LoxErrorKind::Syntax,
+                        message: "Expected expression, got ;.".to_owned(),
+                        position: range(1, 1, 1),
+                    },],
+                ),
+            ),
+        var_declaration:
+            (
+                vec![
+                    Token::new(TokenType::Var, range(1, 1, 3)),
+                    Token::new(TokenType::Identifier("test".to_owned()), range(1, 5, 8)),
+                    Token::new(TokenType::Semicolon, range(1, 9, 9)),
+                ],
+                Ok(
+                    vec![Statement::Var {
+                        name: "test".to_owned(),
+                        initializer: None,
+                        position: range(1, 1, 9),
+                    },],
+                ),
+            ),
+        var_declaration_with_initializer:
+            (
+                // var test = 123.1;
+                vec![
+                    Token::new(TokenType::Var, range(1, 1, 3)),
+                    Token::new(TokenType::Identifier("test".to_owned()), range(1, 4, 8)),
+                    Token::new(TokenType::Equal, range(1, 10, 10)),
+                    Token::new_number(123.1, range(1, 12, 16)),
+                    Token::new(TokenType::Semicolon, range(1, 17, 17)),
+                ],
+                Ok(
+                    vec![Statement::Var {
+                        name: "test".to_owned(),
+                        initializer: Some(Expr {
+                            expr_type: ExprType::NumberLiteral(123.1),
+                            position: range(1, 12, 16),
+                        }),
+                        position: range(1, 1, 17),
+                    },],
+                ),
+            ),
+        var_declaration_with_initializer_expression:
+            (
+                // var test=1+2*3
+                vec![
+                    Token::new(TokenType::Var, range(1, 1, 3)),
+                    Token::new(TokenType::Identifier("test".to_owned()), range(1, 5, 8)),
+                    Token::new(TokenType::Equal, range(1, 9, 9)),
+                    Token::new_number(1.0, range(1, 10, 10)),
+                    Token::new(TokenType::Plus, range(1, 11, 11)),
+                    Token::new_number(2.0, range(1, 12, 12)),
+                    Token::new(TokenType::Star, range(1, 13, 13)),
+                    Token::new_number(3.0, range(1, 14, 14)),
+                    Token::new(TokenType::Semicolon, range(1, 15, 15)),
+                ],
+                Ok(
+                    vec![Statement::Var {
+                        name: "test".to_owned(),
+                        initializer: Some(Expr {
+                            expr_type: ExprType::Binary(
+                                Expr {
+                                    expr_type: ExprType::NumberLiteral(1.0),
+                                    position: range(1, 10, 10),
+                                }.boxed(),
+                                BinaryOp::Plus,
+                                Expr {
+                                    expr_type: ExprType::Binary(
+                                        Expr {
+                                            expr_type: ExprType::NumberLiteral(2.0),
+                                            position: range(1, 12, 12),
+                                        }.boxed(),
+                                        BinaryOp::Star,
+                                        Expr {
+                                            expr_type: ExprType::NumberLiteral(3.0),
+                                            position: range(1, 14, 14),
+                                        }.boxed(),
+                                    ),
+                                    position: range(1, 12, 14),
+                                }.boxed(),
+                            ),
+                            position: range(1, 10, 14),
+                        }),
+                        position: range(1, 1, 15),
+                    },],
+                ),
+            ),
+        print_statement_with_string_sum: (
+            vec![
+                Token::new(TokenType::Print, range(1, 1, 5)),
+                Token::new_string("abc", range(1, 6, 8)),
+                Token::new(TokenType::Plus, range(1, 9, 9)),
+                Token::new_string("def", range(1, 10, 12)),
+                Token::new(TokenType::Semicolon, range(1, 13, 13)),
+            ],
+            Ok(
+                vec![Statement::Print {
+                    expr: Expr {
+                        expr_type: ExprType::Binary(
+                            Expr {
+                                expr_type: ExprType::StringLiteral("abc".to_owned()),
+                                position: range(1, 6, 8),
+                            }.boxed(),
+                            BinaryOp::Plus,
+                            Expr {
+                                expr_type: ExprType::StringLiteral("def".to_owned()),
+                                position: range(1, 10, 12),
+                            }.boxed(),
+                        ),
+                        position: range(1, 6, 12),
+                    },
+                    position: range(1, 1, 13),
+                }],
+            )
+        ),
     );
 }

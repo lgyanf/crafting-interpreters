@@ -7,3 +7,6 @@ edition = "2021"
 
 [dependencies]
 float-cmp = "0.9.0"
+
+[dev-dependencies]
+pretty_assertions = "1"
