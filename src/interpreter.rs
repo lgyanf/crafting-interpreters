@@ -11,6 +11,7 @@ use crate::ast::expr::ExprType;
 use crate::ast::expr::UnaryOp;
 use crate::ast::visitor::StatementVisitor;
 use crate::ast::{Expr, Visitor};
+use crate::error;
 use crate::error::LoxError;
 use crate::error::LoxErrorKind;
 use crate::position::PositionRange;
@@ -210,7 +211,6 @@ impl StatementVisitor for Interpreter<'_> {
             }
             ast::Statement::Print { expr, position: _ } => {
                 let value = self.visit_expr(expr)?;
-                println!("{}", value);
                 writeln!(self.stdout, "{}", value);
             }
             ast::Statement::Var {
@@ -270,7 +270,15 @@ pub fn run_prompt() -> Result<(), Box<dyn Error>> {
         if r == 0 {
             return Ok(());
         }
-        run(&buffer);
+        let result = run(&buffer);
+        match result {
+            Err(errors) => {
+                for error in errors {
+                    println!("Error at ({}, {}): {}", error.position.start.line, error.position.start.column, error.message);
+                }
+            }
+            _ => (),
+        }
     }
 }
 
