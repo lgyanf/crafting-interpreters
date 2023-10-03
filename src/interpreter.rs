@@ -262,6 +262,8 @@ pub fn run_file(path: &str) -> Result<(), Box<dyn Error>> {
 pub fn run_prompt() -> Result<(), Box<dyn Error>> {
     let stdin = io::stdin();
     let mut handle = stdin.lock();
+    let mut stdout = std::io::stdout();
+    let mut interpreter = Interpreter::new(&mut stdout);
     loop {
         print!("> ");
         io::stdout().flush()?;
@@ -270,7 +272,7 @@ pub fn run_prompt() -> Result<(), Box<dyn Error>> {
         if r == 0 {
             return Ok(());
         }
-        let result = run(&buffer);
+        let result = run_with_interpreter(&buffer, &mut interpreter);
         match result {
             Err(errors) => {
                 for error in errors {
