@@ -125,7 +125,30 @@ impl Parser<'_> {
     }
 
     fn expression(&mut self) -> Result<Expr, LoxError> {
-        self.equality()
+        self.assignment()
+    }
+
+    fn assignment(&mut self) -> Result<Expr, LoxError> {
+        let expr = self.equality()?;
+
+        if let Some(_equals) = self.consume_if_matches(&[TokenType::Equal]) {
+            let value = self.assignment()?;
+            match expr.expr_type {
+                ExprType::Variable { name } => {
+                    Ok(Expr {
+                        expr_type: ExprType::Assignment { name, value: value.boxed() },
+                        position: PositionRange::from_bounds(&expr.position, &value.position)
+                    })
+                }
+                _ =>  Err(LoxError {
+                    kind: LoxErrorKind::Syntax,
+                    position: PositionRange::from_bounds(&expr.position, &value.position),
+                    message: format!("Invalid assignment target: {}", expr.expr_type),
+                })
+            }
+        } else {
+            Ok(expr)
+        }
     }
 
     fn equality(&mut self) -> Result<Expr, LoxError> {
@@ -669,6 +692,42 @@ mod parser_tests {
                     position: range(1, 1, 13),
                 }],
             )
+        ),
+
+        assignment: (
+            vec![
+                Token::new(TokenType::Identifier("test".to_owned()), range(1, 1, 4)),
+                Token::new(TokenType::Equal, range(1, 5, 5)),
+                Token::new(TokenType::Number(123.0), range(1, 6, 8)),
+                Token::new(TokenType::Semicolon, range(1, 9, 9)),
+            ],
+            Ok(vec![
+                Statement::Expression {
+                    expr: Expr {
+                        expr_type: ExprType::Assignment {
+                            name: "test".to_owned(),
+                            value: Expr {
+                                expr_type: ExprType::NumberLiteral(123.0),
+                                position: range(1, 6, 8),
+                            }.boxed(),
+                        },
+                        position: range(1, 1, 8),
+                    },
+                    position: range(1, 1, 9)
+                }
+            ]),
+        ),
+        assignment_throws_error_if_no_expression: (
+            vec![
+                Token::new(TokenType::Identifier("test".to_owned()), range(1, 1, 4)),
+                Token::new(TokenType::Equal, range(1, 5, 5)),
+                Token::new(TokenType::Semicolon, range(1, 9, 9)),
+            ],
+            Err(vec![LoxError {
+                kind: LoxErrorKind::Syntax,
+                message: "Expected expression, got ;.".to_owned(),
+                position: range(1, 5, 5),
+            }]),
         ),
     );
 }

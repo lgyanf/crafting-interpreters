@@ -95,6 +95,7 @@ pub enum ExprType {
     Binary(Box<Expr>, BinaryOp, Box<Expr>),
     Grouping(Box<Expr>),
     Variable { name: String },
+    Assignment { name: String, value: Box<Expr> }
 }
 
 impl Display for ExprType {
@@ -108,6 +109,7 @@ impl Display for ExprType {
             ExprType::Binary(left, op, right) => write!(f, "{}{}{}", left, op, right),
             ExprType::Grouping(expr) => write!(f, "({})", expr),
             ExprType::Variable { name } => write!(f, "{}", name),
+            ExprType::Assignment { name, value } => write!(f, "{} = {}", name, value),
         }
     }
 }

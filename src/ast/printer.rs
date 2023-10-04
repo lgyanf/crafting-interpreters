@@ -25,6 +25,7 @@ impl Visitor for AstPrinter {
             ),
             ExprType::Grouping(e) => format!("(group {})", self.visit_expr(e)),
             ExprType::Variable { name } => name.clone(),
+            ExprType::Assignment { name, value } => format!("{} = {}", name, value),
         }
     }
 }

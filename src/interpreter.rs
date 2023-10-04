@@ -11,7 +11,6 @@ use crate::ast::expr::ExprType;
 use crate::ast::expr::UnaryOp;
 use crate::ast::visitor::StatementVisitor;
 use crate::ast::{Expr, Visitor};
-use crate::error;
 use crate::error::LoxError;
 use crate::error::LoxErrorKind;
 use crate::position::PositionRange;
@@ -64,6 +63,10 @@ impl Environment {
 
     fn set(&mut self, name: String, value: Value) {
         self.map.insert(name, value);
+    }
+
+    fn contains_key(&self, name: &str) -> bool {
+        self.map.contains_key(name)
     }
 }
 
@@ -197,6 +200,19 @@ impl Visitor for Interpreter<'_> {
                 // TODO: can we avoid cloning here?
                 Some(value) => Ok((*value).clone()),
             },
+            ExprType::Assignment { name, value: value_expression } => {
+                if self.environment.contains_key(name) {
+                    let value = self.visit_expr(value_expression)?;
+                    self.environment.set(name.clone(), value);
+                    Ok(Value::Nil)
+                } else {
+                    Err(LoxError {
+                        kind: LoxErrorKind::Runtime,
+                        message: format!("Undefined variable '{}'", name),
+                        position: expr.position.clone(),
+                    })
+                }
+            }
         }
     }
 }
@@ -368,6 +384,13 @@ mod run_tests {
             print a;",
             Ok(()),
             b"6\n".to_vec(),
+        ),
+        assignment: (
+            "var a = 1;
+            a = 2;
+            print a;",
+            Ok(()),
+            b"2\n".to_vec(),
         ),
     );
 }
