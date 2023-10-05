@@ -46,19 +46,25 @@ impl Display for Value {
     }
 }
 
-struct Environment {
+struct Environment<'a> {
     map: std::collections::HashMap<String, Value>,
+    parent: Option<&'a Environment<'a>>,
 }
 
-impl Environment {
-    fn new() -> Self {
+impl <'a> Environment<'a> {
+    fn new(parent: Option<&'a Environment<'a>>) -> Self {
         Self {
             map: std::collections::HashMap::new(),
+            parent: parent,
         }
     }
 
     fn get(&self, name: &str) -> Option<&Value> {
-        self.map.get(name)
+        match (self.map.get(name), self.parent) {
+            (Some(r), _) => Some(r),
+            (None, Some(p)) => p.get(name),
+            (None, None) => None,
+        }
     }
 
     fn set(&mut self, name: String, value: Value) {
@@ -66,19 +72,23 @@ impl Environment {
     }
 
     fn contains_key(&self, name: &str) -> bool {
-        self.map.contains_key(name)
+        match (self.map.contains_key(name), self.parent) {
+            (true, _) => true,
+            (false, Some(p)) => p.contains_key(name),
+            (false, None) => false,
+        }
     }
 }
 
 struct Interpreter<'a> {
-    environment: Environment,
+    environment: Environment<'a>,
     stdout: &'a mut dyn std::io::Write,
 }
 
 impl<'a> Interpreter<'a> {
     fn new(stdout: &'a mut dyn std::io::Write) -> Self {
         Interpreter {
-            environment: Environment::new(),
+            environment: Environment::new(None),
             stdout,
         }
     }
