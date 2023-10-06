@@ -1,5 +1,7 @@
+mod environment;
+mod value;
+
 use std::error::Error;
-use std::fmt::Display;
 use std::fs;
 use std::io;
 use std::io::BufRead;
@@ -15,80 +17,21 @@ use crate::error::LoxError;
 use crate::error::LoxErrorKind;
 use crate::position::PositionRange;
 use crate::scanner;
+use super::interpreter::environment::Environment;
+use super::interpreter::value::Value;
 
-#[derive(Debug, PartialEq, Clone)]
-enum Value {
-    Nil,
-    Boolean(bool),
-    Number(f64),
-    String(String),
-}
 
-impl Value {
-    fn to_debug_string(&self) -> String {
-        match self {
-            Value::Nil => "Nil".to_owned(),
-            Value::Boolean(b) => format!("Boolean({})", b),
-            Value::Number(n) => format!("Number({})", n),
-            Value::String(s) => format!("String({})", s),
-        }
-    }
-}
 
-impl Display for Value {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Value::Nil => write!(f, "Nil"),
-            Value::Boolean(b) => write!(f, "{}", b),
-            Value::Number(n) => write!(f, "{}", n),
-            Value::String(s) => write!(f, "{}", s),
-        }
-    }
-}
-
-struct Environment<'a> {
-    map: std::collections::HashMap<String, Value>,
-    parent: Option<&'a Environment<'a>>,
-}
-
-impl <'a> Environment<'a> {
-    fn new(parent: Option<&'a Environment<'a>>) -> Self {
-        Self {
-            map: std::collections::HashMap::new(),
-            parent: parent,
-        }
-    }
-
-    fn get(&self, name: &str) -> Option<&Value> {
-        match (self.map.get(name), self.parent) {
-            (Some(r), _) => Some(r),
-            (None, Some(p)) => p.get(name),
-            (None, None) => None,
-        }
-    }
-
-    fn set(&mut self, name: String, value: Value) {
-        self.map.insert(name, value);
-    }
-
-    fn contains_key(&self, name: &str) -> bool {
-        match (self.map.contains_key(name), self.parent) {
-            (true, _) => true,
-            (false, Some(p)) => p.contains_key(name),
-            (false, None) => false,
-        }
-    }
-}
 
 struct Interpreter<'a> {
-    environment: Environment<'a>,
+    environment: Environment,
     stdout: &'a mut dyn std::io::Write,
 }
 
 impl<'a> Interpreter<'a> {
     fn new(stdout: &'a mut dyn std::io::Write) -> Self {
         Interpreter {
-            environment: Environment::new(None),
+            environment: Environment::new(),
             stdout,
         }
     }
@@ -250,6 +193,17 @@ impl StatementVisitor for Interpreter<'_> {
                 };
                 self.environment.set(name.clone(), value);
             }
+            ast::Statement::Block { statements, position: _ } => {
+                self.environment.new_scope();
+                for statement in statements {
+                    let statement_result = self.execute_statement(&statement);
+                    if statement_result.is_err() {
+                        self.environment.destroy_scope();
+                        return statement_result;
+                    }
+                }
+                self.environment.destroy_scope();
+            },
         };
         Ok(())
     }
@@ -312,9 +266,14 @@ pub fn run_prompt() -> Result<(), Box<dyn Error>> {
 
 #[cfg(test)]
 mod run_tests {
+    use std::str;
+
     use crate::position::Position;
 
     use super::*;
+
+    use pretty_assertions::assert_eq;
+
 
     macro_rules! parametrized_tests {
         ($($name:ident: $value:expr,)*) => {
@@ -325,7 +284,8 @@ mod run_tests {
                 let mut interpreter = Interpreter::new(&mut stdout);
                 let (input, expected, expected_stdout) = $value;
                 assert_eq!(expected, run_with_interpreter(input, &mut interpreter));
-                assert_eq!(expected_stdout, stdout);
+                let stdout_string = str::from_utf8(&stdout).unwrap();
+                assert_eq!(expected_stdout, stdout_string);
             }
         )*
         }
@@ -336,22 +296,22 @@ mod run_tests {
         empty_string: (
             "",
             Ok(()),
-            b"".to_vec(),
+            "",
         ),
         int_sum: (
             "1+2;",
             Ok(()),
-            b"".to_vec(),
+            "",
         ),
         arithmetic_operator_priority: (
             "2 + 2 * 2;",
             Ok(()),
-            b"".to_vec(),
+            "",
         ),
         grouping_priority: (
             "2 * (2 + 2);",
             Ok(()),
-            b"".to_vec(),
+            "",
         ),
         number_plus_string_produces_error: (
             "\"abc\" + 123;",
@@ -370,37 +330,69 @@ mod run_tests {
                     message: "Unsupported operand types for binary operator + (String(abc), Number(123))".to_owned(),
                 },
             ]),
-            b"".to_vec(),
+            "",
         ),
         string_sum: (
             "print \"abc\" + \"def\";",
             Ok(()),
-            b"abcdef\n".to_vec(),
+            "abcdef\n",
         ),
         var_declaration: (
             "var a;
             print a;",
             Ok(()),
-            b"Nil\n".to_vec(),
+            "Nil\n",
         ),
         var_declaration_with_initializer: (
             "var a = 1;
             print a;",
             Ok(()),
-            b"1\n".to_vec(),
+            "1\n",
         ),
         var_declaration_with_initializer_expression: (
             "var a = 2 + 2 * 2;
             print a;",
             Ok(()),
-            b"6\n".to_vec(),
+            "6\n",
         ),
         assignment: (
             "var a = 1;
             a = 2;
             print a;",
             Ok(()),
-            b"2\n".to_vec(),
+            "2\n",
+        ),
+        nested_scopes: (
+            "var a = \"global a\";
+             var b = \"global b\";
+             var c = \"global c\";
+             {
+                var a = \"outer a\";
+                var b = \"outer b\";
+                {
+                    var a = \"inner a\";
+                    print a;
+                    print b;
+                    print c;
+                }
+                print a;
+                print b;
+                print c;
+             }
+             print a;
+             print b;
+             print c;",
+             Ok(()),
+             "inner a
+outer b
+global c
+outer a
+outer b
+global c
+global a
+global b
+global c
+",
         ),
     );
 }

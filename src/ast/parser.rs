@@ -92,7 +92,32 @@ impl Parser<'_> {
     fn statement(&mut self) -> Result<Statement, LoxError> {
         match self.token_iterator.peek() {
             Some(token) if token.type_ == TokenType::Print => self.print_statement(),
+            Some(token) if token.type_ == TokenType::LeftBrace => self.block(),
             _ => self.expression_statement(),
+        }
+    }
+
+    fn block(&mut self) -> Result<Statement, LoxError> {
+        let left_brace = self.token_iterator.next().unwrap();
+        let mut statements: Vec<Statement> = Vec::new();
+        while let Some(peek) = self.token_iterator.peek() {
+            if peek.type_ == TokenType::RightBrace {
+                break;
+            }
+            statements.push(self.declaration()?);
+        }
+        let right_brace = self.consume_if_matches(&[TokenType::RightBrace]);
+
+        match right_brace {
+            Some(rb) => Ok(Statement::Block {
+                statements,
+                position: PositionRange::from_bounds(&left_brace.position, &rb.position),
+            }),
+            _ => Err(LoxError {
+                kind: LoxErrorKind::Syntax,
+                position: PositionRange::from_bounds(&left_brace.position, &self.token_iterator.last_position().unwrap()),
+                message: "Expected '}' after block.".to_owned(),
+            }),
         }
     }
 
