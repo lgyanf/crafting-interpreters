@@ -390,5 +390,18 @@ global b
 global c
 ",
         ),
+        var_shadow: (
+            "var a = 1;
+             {
+                var a = a + 2;
+                print a;
+             }
+             print a;
+             ",
+             Ok(()),
+             "3
+1
+"
+        ),
     );
 }
