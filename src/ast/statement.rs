@@ -20,12 +20,18 @@ pub enum Statement {
     Block {
         statements: Vec<Statement>,
         position: PositionRange,
-    }
+    },
+    IfElse {
+        condition: Expr,
+        then_branch: Box<Statement>,
+        else_branch: Option<Box<Statement>>,
+        position: PositionRange,
+    },
 }
 
 impl Statement {
-    fn position(&self) -> &PositionRange {
-        match &self {
+    pub fn position(&self) -> &PositionRange {
+        match self {
             // Self::Assignment { name: _, expr: _, position } => position,
             Statement::Expression { expr: _, position } => position,
             Statement::Print { expr: _, position } => position,
@@ -35,6 +41,13 @@ impl Statement {
                 position,
             } => position,
             Statement::Block { statements: _, position } => position,
+            Statement::IfElse { condition: _, then_branch: _, else_branch: _, position } => {
+                position
+            },
         }
+    }
+
+    pub fn boxed(self) -> Box<Self> {
+        Box::new(self)
     }
 }

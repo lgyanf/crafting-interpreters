@@ -93,6 +93,7 @@ impl Parser<'_> {
         match self.token_iterator.peek() {
             Some(token) if token.type_ == TokenType::Print => self.print_statement(),
             Some(token) if token.type_ == TokenType::LeftBrace => self.block(),
+            Some(token) if token.type_ == TokenType::If => self.if_statement(),
             _ => self.expression_statement(),
         }
     }
@@ -133,6 +134,40 @@ impl Parser<'_> {
                 start: print_keyword.position.start.clone(),
                 end: end_position,
             },
+        })
+    }
+
+    fn if_statement(&mut self) -> Result<Statement, LoxError> {
+        let if_token = self.token_iterator.next().unwrap();
+        self.consume_or_error(
+            &TokenType::LeftParen,
+            &if_token.position,
+            "'if'"
+        );
+        let condition = self.expression()?;
+        // consume right parenthesis
+        self.consume_or_error(
+            &TokenType::RightParen,
+            &if_token.position,
+            "condition",
+        );
+        let then_branch = self.statement()?;
+        let mut else_branch: Option<Box<Statement>> = None;
+        if self.consume_if_matches(&[TokenType::Else]).is_some() {
+            else_branch = Some(self.statement()?.boxed());
+        }
+        let right_bound: PositionRange = match else_branch.as_ref() {
+            Some(eb) => Some(eb.position().clone()),
+            None => None,
+        }.unwrap_or(then_branch.position().clone());
+        Ok(Statement::IfElse {
+            condition,
+            then_branch: then_branch.boxed(),
+            else_branch: else_branch,
+            position: PositionRange::from_bounds(
+                &if_token.position,
+                &right_bound,
+            )
         })
     }
 
@@ -339,10 +374,11 @@ impl Parser<'_> {
         }
     }
 
-    fn consume_semicolon(
+    fn consume_or_error(
         &mut self,
+        expected_token: &TokenType,
         expression_start: &PositionRange,
-        error_message_suffix: &str,
+        error_message_suffix: &str
     ) -> Result<&Token, LoxError> {
         let next_token_type = self
             .token_iterator
@@ -350,9 +386,9 @@ impl Parser<'_> {
             .map(|t| t.type_.to_string())
             .unwrap_or_else(|| "<EOF>".to_owned());
         match self.token_iterator.peek() {
-            Some(token) if token.type_ == TokenType::Semicolon => {
-                let semicolon = self.token_iterator.next().unwrap();
-                Ok(semicolon)
+            Some(token) if token.type_ == *expected_token => {
+                let token = self.token_iterator.next().unwrap();
+                Ok(token)
             }
             _ => Err(LoxError {
                 kind: LoxErrorKind::Syntax,
@@ -361,11 +397,19 @@ impl Parser<'_> {
                     &self.token_iterator.last_position().unwrap(),
                 ),
                 message: format!(
-                    "Expected ';' after {}, got {}",
-                    error_message_suffix, next_token_type
+                    "Expected '{}' after {}, got {}",
+                    expected_token, error_message_suffix, next_token_type
                 ),
             }),
         }
+    }
+
+    fn consume_semicolon(
+        &mut self,
+        expression_start: &PositionRange,
+        error_message_suffix: &str,
+    ) -> Result<&Token, LoxError> {
+        self.consume_or_error(&TokenType::Semicolon, expression_start, error_message_suffix)
     }
 
     fn synchronize(&mut self) {

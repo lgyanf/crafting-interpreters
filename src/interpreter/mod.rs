@@ -200,6 +200,13 @@ impl StatementVisitor for Interpreter<'_> {
                 }
                 self.environment.destroy_scope();
             },
+            ast::Statement::IfElse { condition, then_branch, else_branch, position: _ } => {
+                if Self::is_truthy(&self.visit_expr(condition)?) {
+                    self.execute_statement(&then_branch)?;
+                } else if else_branch.is_some() {
+                    self.execute_statement(else_branch.as_ref().unwrap())?;
+                }
+            },
         };
         Ok(())
     }
@@ -402,6 +409,24 @@ global c
              "3
 1
 "
+        ),
+        if_statement: (
+            "var a = 1;
+            if (a > 0) {
+                print \"true\";
+            }",
+            Ok(()),
+            "true\n",
+        ),
+        if_else_statement: (
+            "var a = 1;
+            if (a < 0) {
+                print \"true\";
+            } else {
+                print \"false\";
+            }",
+            Ok(()),
+            "false\n",
         ),
     );
 }
