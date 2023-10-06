@@ -196,11 +196,7 @@ impl StatementVisitor for Interpreter<'_> {
             ast::Statement::Block { statements, position: _ } => {
                 self.environment.new_scope();
                 for statement in statements {
-                    let statement_result = self.execute_statement(&statement);
-                    if statement_result.is_err() {
-                        self.environment.destroy_scope();
-                        return statement_result;
-                    }
+                    self.execute_statement(statement)?;
                 }
                 self.environment.destroy_scope();
             },
