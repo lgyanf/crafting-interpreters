@@ -77,9 +77,12 @@ impl<'a> Interpreter<'a> {
         right: &Expr,
         position: &PositionRange,
     ) -> Result<Value, LoxError> {
+        // TOOD: right value should be calculated lazily
         let left_value = self.visit_expr(left)?;
         let right_value = self.visit_expr(right)?;
         match (&left_value, &op, &right_value) {
+            (_, BinaryOp::And, _) => Ok(if !Self::is_truthy(&left_value) { left_value } else { right_value }),
+            (_, BinaryOp::Or, _) => Ok(if Self::is_truthy(&left_value) { left_value } else { right_value }),
             (Value::Number(l), _, Value::Number(r)) => {
                 let result = Self::binary_arithmentic_op(*l, op, *r, position);
                 Ok(result)
@@ -91,8 +94,6 @@ impl<'a> Interpreter<'a> {
             }
             (_, BinaryOp::EqualEqual, _) => Ok(Value::Boolean(left_value == right_value)),
             (_, BinaryOp::BangEqual, _) => Ok(Value::Boolean(left_value != right_value)),
-            (_, BinaryOp::And, _) => Ok(Value::Boolean(Self::is_truthy(&left_value) && Self::is_truthy(&right_value))),
-            (_, BinaryOp::Or, _) => Ok(Value::Boolean(Self::is_truthy(&left_value) || Self::is_truthy(&right_value))),
             _ => Err(LoxError {
                 kind: LoxErrorKind::Runtime,
                 position: position.clone(),
@@ -123,8 +124,8 @@ impl<'a> Interpreter<'a> {
             BinaryOp::LessEqual => Value::Boolean(left <= right),
             BinaryOp::EqualEqual => Value::Boolean(left == right),
             BinaryOp::BangEqual => Value::Boolean(left != right),
-            BinaryOp::And => Value::Boolean((left > 0.) && (right > 0.)),
-            BinaryOp::Or => Value::Boolean((left > 0.) || (right > 0.)),
+            BinaryOp::And => unreachable!(),
+            BinaryOp::Or => unreachable!(),
         }
     }
 
@@ -460,6 +461,16 @@ global c
              print a and b;",
             Ok(()),
             "false\n",
+        ),
+        print_hi_or_2: (
+            "print \"hi\" or 2;",
+            Ok(()),
+            "hi\n",
+        ),
+        print_nil_or_yes: (
+            "print nil or \"yes\";",
+            Ok(()),
+            "yes\n",
         ),
     );
 }
