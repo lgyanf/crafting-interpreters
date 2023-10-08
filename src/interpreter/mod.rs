@@ -65,6 +65,7 @@ impl<'a> Interpreter<'a> {
         match value {
             Value::Nil => false,
             Value::Boolean(b) => *b,
+            Value::Number(f) => *f > 0.0,
             _ => true,
         }
     }
@@ -90,6 +91,8 @@ impl<'a> Interpreter<'a> {
             }
             (_, BinaryOp::EqualEqual, _) => Ok(Value::Boolean(left_value == right_value)),
             (_, BinaryOp::BangEqual, _) => Ok(Value::Boolean(left_value != right_value)),
+            (_, BinaryOp::And, _) => Ok(Value::Boolean(Self::is_truthy(&left_value) && Self::is_truthy(&right_value))),
+            (_, BinaryOp::Or, _) => Ok(Value::Boolean(Self::is_truthy(&left_value) || Self::is_truthy(&right_value))),
             _ => Err(LoxError {
                 kind: LoxErrorKind::Runtime,
                 position: position.clone(),
@@ -120,6 +123,8 @@ impl<'a> Interpreter<'a> {
             BinaryOp::LessEqual => Value::Boolean(left <= right),
             BinaryOp::EqualEqual => Value::Boolean(left == right),
             BinaryOp::BangEqual => Value::Boolean(left != right),
+            BinaryOp::And => Value::Boolean((left > 0.) && (right > 0.)),
+            BinaryOp::Or => Value::Boolean((left > 0.) || (right > 0.)),
         }
     }
 
@@ -425,6 +430,34 @@ global c
             } else {
                 print \"false\";
             }",
+            Ok(()),
+            "false\n",
+        ),
+        or_statement: (
+            "var a = true;
+             var b = false;
+             print a or b;",
+            Ok(()),
+            "true\n",
+        ),
+        or_statement_false: (
+            "var a = false;
+             var b = false;
+             print a or b;",
+            Ok(()),
+            "false\n",
+        ),
+        and_statement: (
+            "var a = true;
+             var b = true;
+             print a and b;",
+            Ok(()),
+            "true\n",
+        ),
+        and_statement_false: (
+            "var a = true;
+             var b = false;
+             print a and b;",
             Ok(()),
             "false\n",
         ),

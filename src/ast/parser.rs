@@ -189,7 +189,7 @@ impl Parser<'_> {
     }
 
     fn assignment(&mut self) -> Result<Expr, LoxError> {
-        let expr = self.equality()?;
+        let expr = self.or()?;
 
         if let Some(_equals) = self.consume_if_matches(&[TokenType::Equal]) {
             let value = self.assignment()?;
@@ -209,6 +209,32 @@ impl Parser<'_> {
         } else {
             Ok(expr)
         }
+    }
+
+    fn or(&mut self) -> Result<Expr, LoxError> {
+        let mut left = self.and()?;
+        while let Some(operator) = self.consume_if_matches(&[TokenType::Or]) {
+            let right = self.and()?;
+            left = Expr {
+                expr_type: ExprType::Binary(
+                    left.boxed(), BinaryOp::from(operator), right.boxed()
+                ),
+                position: PositionRange::from_bounds(&left.position, &right.position)
+            }
+        }
+        Ok(left)
+    }
+
+    fn and(&mut self) -> Result<Expr, LoxError> {
+        let mut left = self.equality()?;
+        while let Some(operator) = self.consume_if_matches(&[TokenType::And]) {
+            let right = self.equality()?;
+            left = Expr {
+                expr_type: ExprType::Binary(left.boxed(), BinaryOp::from(operator), right.boxed()),
+                position: PositionRange::from_bounds(&left.position, &right.position),
+            }
+        }
+        Ok(left)
     }
 
     fn equality(&mut self) -> Result<Expr, LoxError> {

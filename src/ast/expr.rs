@@ -17,6 +17,8 @@ pub enum BinaryOp {
     LessEqual,
     EqualEqual,
     BangEqual,
+    And,
+    Or,
 }
 
 impl Display for BinaryOp {
@@ -32,6 +34,8 @@ impl Display for BinaryOp {
             BinaryOp::LessEqual => "<=",
             BinaryOp::EqualEqual => "==",
             BinaryOp::BangEqual => "!=",
+            BinaryOp::And => "and",
+            BinaryOp::Or => "or",
         };
         write!(f, "{}", s)
     }
@@ -48,6 +52,8 @@ impl From<Token> for BinaryOp {
             TokenType::GreaterEqual => Self::GreaterEqual,
             TokenType::Less => Self::Less,
             TokenType::LessEqual => Self::LessEqual,
+            TokenType::And => Self::And,
+            TokenType::Or => Self::Or,
             _ => unreachable!(
                 "Cannot create binary operator from {} at {:?}",
                 t.type_, t.position
