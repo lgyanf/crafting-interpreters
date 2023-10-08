@@ -160,12 +160,10 @@ impl Visitor for Interpreter<'_> {
                 Some(value) => Ok((*value).clone()),
             },
             ExprType::Assignment { name, value: value_expression } => {
-                if self.environment.contains_key(name) {
-                    let value = self.visit_expr(value_expression)?;
-                    self.environment.set(name.clone(), value);
-                    Ok(Value::Nil)
-                } else {
-                    Err(LoxError {
+                let new_value = self.visit_expr(&value_expression)?;
+                match self.environment.lookup_and_set(name.clone(), new_value) {
+                    Ok(_) => Ok(Value::Nil),
+                    Err(_) => Err(LoxError {
                         kind: LoxErrorKind::Runtime,
                         message: format!("Undefined variable '{}'", name),
                         position: expr.position.clone(),
@@ -197,7 +195,7 @@ impl StatementVisitor for Interpreter<'_> {
                     None => Value::Nil,
                     Some(expr) => self.interpret_expression(expr)?,
                 };
-                self.environment.set(name.clone(), value);
+                self.environment.set_in_current_scope(name.clone(), value);
             }
             ast::Statement::Block { statements, position: _ } => {
                 self.environment.new_scope();
@@ -211,6 +209,11 @@ impl StatementVisitor for Interpreter<'_> {
                     self.execute_statement(&then_branch)?;
                 } else if else_branch.is_some() {
                     self.execute_statement(else_branch.as_ref().unwrap())?;
+                }
+            },
+            ast::Statement::While { condition, body, position: _ } => {
+                while Self::is_truthy(&self.visit_expr(condition)?) {
+                    self.visit_statement(body)?;
                 }
             },
         };
@@ -472,5 +475,30 @@ global c
             Ok(()),
             "yes\n",
         ),
+        while_statement: (
+            "
+            var i = 0;
+            while (i < 3) {
+                print \"hello\";
+                i = i + 1;
+            }
+            ",
+            Ok(()),
+            "hello
+hello
+hello\n",
+        ),
+        while_statement_not_executed_if_condition_is_false: (
+            "
+            var i = 10;
+            while (i < 3) {
+                print \"hello\";
+                i = i + 1;
+            }
+            ",
+            Ok(()),
+            "",
+        ),
+
     );
 }

@@ -94,6 +94,7 @@ impl Parser<'_> {
             Some(token) if token.type_ == TokenType::Print => self.print_statement(),
             Some(token) if token.type_ == TokenType::LeftBrace => self.block(),
             Some(token) if token.type_ == TokenType::If => self.if_statement(),
+            Some(token) if token.type_ == TokenType::While => self.while_loop_statement(),
             _ => self.expression_statement(),
         }
     }
@@ -143,14 +144,14 @@ impl Parser<'_> {
             &TokenType::LeftParen,
             &if_token.position,
             "'if'"
-        );
+        )?;
         let condition = self.expression()?;
         // consume right parenthesis
         self.consume_or_error(
             &TokenType::RightParen,
             &if_token.position,
             "condition",
-        );
+        )?;
         let then_branch = self.statement()?;
         let mut else_branch: Option<Box<Statement>> = None;
         if self.consume_if_matches(&[TokenType::Else]).is_some() {
@@ -169,6 +170,22 @@ impl Parser<'_> {
                 &right_bound,
             )
         })
+    }
+
+    fn while_loop_statement(&mut self) -> Result<Statement, LoxError> {
+        let while_keyword = self.token_iterator.next().unwrap();
+        self.consume_or_error(&TokenType::LeftParen, &while_keyword.position, "'while'")?;
+        let condition = self.expression()?;
+        self.consume_or_error(&TokenType::RightParen, &while_keyword.position, "'while'")?;
+        let body = self.statement()?;
+        let statement_end_position = body.position().clone();
+        return Ok(
+            Statement::While {
+                condition,
+                body: body.boxed(),
+                position: PositionRange::from_bounds(&while_keyword.position, &statement_end_position),
+            }
+        )
     }
 
     fn expression_statement(&mut self) -> Result<Statement, LoxError> {

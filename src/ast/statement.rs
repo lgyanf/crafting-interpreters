@@ -27,6 +27,11 @@ pub enum Statement {
         else_branch: Option<Box<Statement>>,
         position: PositionRange,
     },
+    While {
+        condition: Expr,
+        body: Box<Statement>,
+        position: PositionRange,
+    }
 }
 
 impl Statement {
@@ -44,6 +49,7 @@ impl Statement {
             Statement::IfElse { condition: _, then_branch: _, else_branch: _, position } => {
                 position
             },
+            Statement::While { condition: _, body: _, position } => position,
         }
     }
 
