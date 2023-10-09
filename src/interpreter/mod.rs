@@ -216,6 +216,17 @@ impl StatementVisitor for Interpreter<'_> {
                     self.visit_statement(body)?;
                 }
             },
+            ast::Statement::For { initializer, condition, increment, body, position: _ } => {
+                if let Some(initializer) = initializer {
+                    self.visit_statement(&initializer);
+                }
+                while condition.is_none() || Self::is_truthy(&self.visit_expr(&condition.as_ref().unwrap())?) {
+                    self.visit_statement(&body)?;
+                    if let Some(increment) = increment {
+                        self.visit_statement(&increment)?;
+                    }
+                }
+            },
         };
         Ok(())
     }
@@ -499,6 +510,45 @@ hello\n",
             Ok(()),
             "",
         ),
-
+        for_loop: (
+            "
+            var a = 0;
+            var temp;
+            for (var b = 1; a < 3; b = temp + b) {
+             print a;
+             temp = a;
+             a = b;
+            }
+            ",
+            Ok(()),
+            "0
+1
+1
+2\n",
+        ),
+        for_loop_no_initializer: (
+            "
+            var a = 0;
+            for (; a < 3; a = a + 1) {
+             print a;
+            }
+            ",
+            Ok(()),
+            "0
+1
+2\n",
+        ),
+        for_loop_no_increment: (
+            "
+            for (var a = 0; a < 3;) {
+             print a;
+             a = a + 1;
+            }
+            ",
+            Ok(()),
+            "0
+1
+2\n",
+        ),
     );
 }

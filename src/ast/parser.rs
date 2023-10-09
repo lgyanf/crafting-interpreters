@@ -95,6 +95,7 @@ impl Parser<'_> {
             Some(token) if token.type_ == TokenType::LeftBrace => self.block(),
             Some(token) if token.type_ == TokenType::If => self.if_statement(),
             Some(token) if token.type_ == TokenType::While => self.while_loop_statement(),
+            Some(token) if token.type_ == TokenType::For => self.for_statement(),
             _ => self.expression_statement(),
         }
     }
@@ -186,6 +187,67 @@ impl Parser<'_> {
                 position: PositionRange::from_bounds(&while_keyword.position, &statement_end_position),
             }
         )
+    }
+
+    fn for_statement(&mut self) -> Result<Statement, LoxError> {
+        let for_keyword = self.token_iterator.next().unwrap();
+        self.consume_or_error(
+            &TokenType::LeftParen,
+            &for_keyword.position,
+            "for loop declaration",
+        )?;
+        let initializer = match self.token_iterator.peek() {
+            Some(t) if t.type_ == TokenType::Semicolon => {
+                self.consume_or_error(
+                    &TokenType::Semicolon,
+                    &for_keyword.position,
+                    "for loop initializer",
+                );
+                None
+            },
+            Some(t) if t.type_ == TokenType::Var => Some((self.var_declaration()?).boxed()),
+            Some(_) => Some((self.expression_statement()?).boxed()),
+            None => {
+                return Err(LoxError {
+                    kind: LoxErrorKind::Syntax,
+                    message: "Expected variable declaration, expression or ';' in for loop initializer".to_owned(),
+                    position: PositionRange::from_bounds(
+                        &for_keyword.position,
+                        &self.token_iterator.last_position().unwrap(),
+                    ),
+                });
+            },
+        };
+        let condition = match self.token_iterator.peek() {
+            Some(t) if t.type_ == TokenType::Semicolon => None,
+            _ => Some(self.expression()?),
+        };
+        self.consume_or_error(
+            &TokenType::Semicolon,
+            &for_keyword.position,
+            "loop condition"
+        )?;
+        let increment = match self.token_iterator.peek() {
+            Some(t) if t.type_ == TokenType::RightParen => None,
+            _ => Some(self.expression()?),
+        }.map(|expr| {
+            let position = expr.position.clone();
+            Statement::Expression { expr, position }.boxed()
+        });
+        self.consume_or_error(
+            &TokenType::RightParen,
+            &for_keyword.position,
+            "for loop clauses",
+        )?;
+        let body = self.statement()?;
+        let body_position = body.position().clone();
+        Ok(Statement::For {
+            initializer,
+            condition,
+            increment,
+            body: body.boxed(),
+            position: PositionRange::from_bounds(&for_keyword.position, &body_position),
+        })
     }
 
     fn expression_statement(&mut self) -> Result<Statement, LoxError> {

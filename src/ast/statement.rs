@@ -31,6 +31,13 @@ pub enum Statement {
         condition: Expr,
         body: Box<Statement>,
         position: PositionRange,
+    },
+    For {
+        initializer: Option<Box<Statement>>,
+        condition: Option<Expr>,
+        increment: Option<Box<Statement>>,
+        body: Box<Statement>,
+        position: PositionRange,
     }
 }
 
@@ -50,6 +57,7 @@ impl Statement {
                 position
             },
             Statement::While { condition: _, body: _, position } => position,
+            Statement::For {initializer: _, condition: _, increment: _, body: _, position} => position,
         }
     }
 
