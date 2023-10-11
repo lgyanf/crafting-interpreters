@@ -101,7 +101,8 @@ pub enum ExprType {
     Binary(Box<Expr>, BinaryOp, Box<Expr>),
     Grouping(Box<Expr>),
     Variable { name: String },
-    Assignment { name: String, value: Box<Expr> }
+    Assignment { name: String, value: Box<Expr> },
+    Call { callee: Box<Expr>, arguments: Vec<Expr>},
 }
 
 impl Display for ExprType {
@@ -116,6 +117,12 @@ impl Display for ExprType {
             ExprType::Grouping(expr) => write!(f, "({})", expr),
             ExprType::Variable { name } => write!(f, "{}", name),
             ExprType::Assignment { name, value } => write!(f, "{} = {}", name, value),
+            ExprType::Call { callee, arguments } => {
+                let arg_strings: Vec<String> = arguments.iter()
+                    .map(Expr::to_string)
+                    .collect();
+                write!(f, "{}({})", callee, arg_strings.join(", "))
+            }
         }
     }
 }

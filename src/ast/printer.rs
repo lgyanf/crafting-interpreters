@@ -26,6 +26,10 @@ impl Visitor for AstPrinter {
             ExprType::Grouping(e) => format!("(group {})", self.visit_expr(e)),
             ExprType::Variable { name } => name.clone(),
             ExprType::Assignment { name, value } => format!("{} = {}", name, value),
+            ExprType::Call { callee, arguments } => {
+                let argument_strings: Vec<String> = arguments.iter().map(Expr::to_string).collect();
+                format!("{}({})", callee, argument_strings.join(", "))
+            },
         }
     }
 }

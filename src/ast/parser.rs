@@ -380,7 +380,44 @@ impl Parser<'_> {
                 position: PositionRange::from_bounds(&operator_position, &right.position),
             });
         }
-        self.primary()
+        self.call()
+    }
+
+    fn call(&mut self) -> Result<Expr, LoxError> {
+        let mut expr = self.primary()?;
+        while self.consume_if_matches(&[TokenType::LeftParen]).is_some() {
+            expr = self.finish_call(&expr)?;
+        }
+        Ok(expr)
+    }
+
+    fn finish_call(&mut self, callee: &Expr) -> Result<Expr, LoxError> {
+        let mut arguments: Vec<Expr> = Vec::new();
+        let peek = self.token_iterator.peek();
+        if let Some(peek) = peek {
+            if peek.type_ != TokenType::RightParen {
+                arguments.push(self.expression()?);
+                while self.consume_if_matches(&[TokenType::Comma]).is_some() {
+                    arguments.push(self.expression()?);
+                    if arguments.len() > 255 {
+                        return Err(LoxError {
+                            kind: LoxErrorKind::Syntax,
+                            message: "Functions cannot have more than 255 arguments".to_owned(),
+                            position: PositionRange::from_bounds(&callee.position, &self.token_iterator.last_position().unwrap())
+                         })
+                    }
+                }
+            }
+        }
+        let right_paren = self.consume_or_error(
+            &TokenType::RightParen,
+            &callee.position,
+            "arguments",
+        )?;
+        Ok(Expr {
+            expr_type: ExprType::Call { callee: callee.boxed(), arguments },
+            position: PositionRange::from_bounds(&callee.position, &right_paren.position),
+        })
     }
 
     fn primary(&mut self) -> Result<Expr, LoxError> {

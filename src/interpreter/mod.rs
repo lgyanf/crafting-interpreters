@@ -1,5 +1,6 @@
 mod environment;
 mod value;
+mod native_functons;
 
 use std::error::Error;
 use std::fs;
@@ -17,11 +18,10 @@ use crate::error::LoxError;
 use crate::error::LoxErrorKind;
 use crate::position::PositionRange;
 use crate::scanner;
+use self::native_functons::inject_native_functions;
+
 use super::interpreter::environment::Environment;
 use super::interpreter::value::Value;
-
-
-
 
 struct Interpreter<'a> {
     environment: Environment,
@@ -30,10 +30,12 @@ struct Interpreter<'a> {
 
 impl<'a> Interpreter<'a> {
     fn new(stdout: &'a mut dyn std::io::Write) -> Self {
-        Interpreter {
+        let mut instance = Interpreter {
             environment: Environment::new(),
             stdout,
-        }
+        };
+        inject_native_functions(&mut instance.environment);
+        instance
     }
 
     fn unary_op(
@@ -136,6 +138,31 @@ impl<'a> Interpreter<'a> {
     pub fn execute_statement(&mut self, statement: &crate::ast::Statement) -> Result<(), LoxError> {
         self.visit_statement(statement)
     }
+
+    fn call(&mut self, callee: &Expr, arguments: &Vec<Expr>, position: &PositionRange) -> Result<Value, LoxError> {
+        let callee = self.visit_expr(&callee)?;
+        let mut evaluated_arguments: Vec<Value> = Vec::with_capacity(arguments.len());
+        for arg in arguments {
+            evaluated_arguments.push(self.visit_expr(arg)?);
+        }
+        match callee {
+            Value::Callable(ct) => {
+                if ct.arity() != evaluated_arguments.len() {
+                    return Err(LoxError {
+                        kind: LoxErrorKind::Runtime,
+                        message: format!("Function expected {} args, got {}", ct.arity(), evaluated_arguments.len()),
+                        position: position.clone(),
+                    });
+                }
+                ct.call(&evaluated_arguments)
+            },
+            _ => Err(LoxError {
+                kind:  LoxErrorKind::Runtime,
+                message: format!("{} is not callable", callee),
+                position: position.clone(),
+            })
+        }
+    }
 }
 
 impl Visitor for Interpreter<'_> {
@@ -170,6 +197,7 @@ impl Visitor for Interpreter<'_> {
                     })
                 }
             }
+            ExprType::Call { callee, arguments } => self.call(callee, arguments, &expr.position),
         }
     }
 }
@@ -549,6 +577,13 @@ hello\n",
             "0
 1
 2\n",
+        ),
+        clock_native_fn: (
+            "
+            var time = clock();
+            print time > 0;",
+            Ok(()),
+            "true\n",
         ),
     );
 }
