@@ -19,6 +19,7 @@ use crate::error::LoxErrorKind;
 use crate::position::PositionRange;
 use crate::scanner;
 use self::native_functons::inject_native_functions;
+use self::value::CallableType;
 
 use super::interpreter::environment::Environment;
 use super::interpreter::value::Value;
@@ -254,6 +255,21 @@ impl StatementVisitor for Interpreter<'_> {
                         self.visit_statement(&increment)?;
                     }
                 }
+            },
+            ast::Statement::FunctionDef {
+                name,
+                parameters,
+                body,
+                position,
+            } => {
+                self.environment.set_in_current_scope(name.clone(), Value::Callable(
+                    CallableType::Function {
+                        name: name.clone(),
+                        body: body.clone(),
+                        parameters: parameters.clone(),
+                        position: position.clone(),
+                    }
+                ))
             },
         };
         Ok(())
@@ -578,12 +594,23 @@ hello\n",
 1
 2\n",
         ),
-        clock_native_fn: (
+        clock_native_function: (
             "
             var time = clock();
             print time > 0;",
             Ok(()),
             "true\n",
+        ),
+        define_and_print_lox_function: (
+            "
+            fun add(a, b) {
+                print a + b;
+            }
+
+            print(add);
+            ",
+            Ok(()),
+            "<fun add>\n",
         ),
     );
 }

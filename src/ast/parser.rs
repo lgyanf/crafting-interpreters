@@ -4,8 +4,10 @@ use crate::position::{Position, PositionRange};
 use crate::token::{Token, TokenType};
 
 use super::expr::{BinaryOp, ExprType, UnaryOp};
+use super::statement::FunctionParameter;
 use super::token_iterator::TokenIterator;
 use super::Statement;
+use super::functon_kind::FunctionKind;
 
 struct Parser<'a> {
     token_iterator: TokenIterator<'a>,
@@ -36,6 +38,7 @@ impl Parser<'_> {
         let peek = self.token_iterator.peek();
         match peek {
             Some(t) if t.type_ == TokenType::Var => self.var_declaration(),
+            Some(t) if t.type_ == TokenType::Fun => self.function_declaration(&FunctionKind::Function),
             _ => self.statement(),
         }
     }
@@ -87,6 +90,80 @@ impl Parser<'_> {
                 end: semicolon.position.end.clone(),
             },
         })
+    }
+
+    fn function_declaration(&mut self, kind: &FunctionKind) -> Result<Statement, LoxError> {
+        let fun_keyword = self.token_iterator.next().unwrap();
+        let peek = self.token_iterator.peek_clone();
+
+        let name = match peek {
+            Some(t) => match t.type_ {
+                TokenType::Identifier(name) => {
+                    self.token_iterator.next().unwrap();
+                    name
+                },
+                _ => return Err(self.make_expected_function_name_error(&fun_keyword.position, kind))
+            },
+            None => return Err(
+                self.make_expected_function_name_error(&fun_keyword.position, kind),
+            ),
+        };
+        self.consume_or_error(
+            &TokenType::LeftParen,
+            &fun_keyword.position,
+            "'fun'",
+        )?;
+        let mut parameters: Vec<FunctionParameter> = Vec::new();
+        let peek = self.token_iterator.peek();
+        if let Some(peek) = peek {
+            if peek.type_ != TokenType::RightParen {
+                // todo: fill functon parameter names
+                parameters.push(self.expression()?);
+                while self.consume_if_matches(&[TokenType::Comma]).is_some() {
+                    parameters.push(self.expression()?);
+                    if parameters.len() > 255 {
+                        return Err(LoxError {
+                            kind: LoxErrorKind::Syntax,
+                            message: "Functions cannot have more than 255 arguments".to_owned(),
+                            position: PositionRange::from_bounds(&fun_keyword.position, &self.token_iterator.last_position().unwrap())
+                         })
+                    }
+                }
+            }
+        }
+        // consume right paren
+        self.consume_or_error(
+            &TokenType::RightParen,
+            &fun_keyword.position,
+            "arguments",
+        )?;
+        self.consume_or_error(
+            &TokenType::LeftBrace,
+            &fun_keyword.position,
+            "function arguments"
+        )?;
+        let body = self.block()?;
+        let body_position = body.position().clone();
+        Ok(Statement::FunctionDef {
+            name,
+            parameters,
+            body: body.boxed(),
+            position: PositionRange::from_bounds(&fun_keyword.position, &body_position),
+        })
+    }
+
+    fn make_expected_function_name_error(&mut self, start: &PositionRange, kind: &FunctionKind) -> LoxError {
+        let function_kind_str = match kind {
+            FunctionKind::Function => "function"
+        };
+        LoxError {
+            kind: LoxErrorKind::Syntax,
+            message: format!("Expected {} name", function_kind_str),
+            position: PositionRange::from_bounds(
+                start,
+                &self.token_iterator.last_position().unwrap(),
+            ),
+        }
     }
 
     fn statement(&mut self) -> Result<Statement, LoxError> {

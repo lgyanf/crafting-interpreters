@@ -20,7 +20,8 @@ pub fn inject_native_functions(env: &mut Environment) {
     ] {
         match native_functon {
             CallableType::Native { name, arity: _, call: _ } =>
-                env.set_in_current_scope(name.to_owned(), Value::Callable(native_functon))
+                env.set_in_current_scope(name.to_owned(), Value::Callable(native_functon)),
+            CallableType::Function { name: _, parameters: _, body: _, position: _  } => unreachable!("Lox functions cannot be injected"),
         };
     }
 }

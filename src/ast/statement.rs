@@ -1,6 +1,8 @@
-use crate::position::PositionRange;
+use crate::{position::PositionRange};
 
 use super::expr::Expr;
+
+pub type FunctionParameter = Expr;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
@@ -38,6 +40,12 @@ pub enum Statement {
         increment: Option<Box<Statement>>,
         body: Box<Statement>,
         position: PositionRange,
+    },
+    FunctionDef {
+        name: String,
+        parameters: Vec<FunctionParameter>,
+        body: Box<Statement>,
+        position: PositionRange,
     }
 }
 
@@ -58,6 +66,7 @@ impl Statement {
             },
             Statement::While { condition: _, body: _, position } => position,
             Statement::For {initializer: _, condition: _, increment: _, body: _, position} => position,
+            Statement::FunctionDef { name: _, parameters: _, body: _, position } => position,
         }
     }
 
